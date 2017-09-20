@@ -16,7 +16,7 @@ function printUsage()
 {
     console.error( 
 "usage: trans_proto dst_ip dst_port [send_msg [send_count=1 [send_delay=0]]]\n\n\
- UDP - send/recv data from remote host and keep socket open until exit\n\
+ UDP - send/recv data to/from remote host and keep socket open until exit\n\
  TCP - [send/recv and] stay connected until CTRL+C\n\n\
  send_msg - prefix '\\x' to send raw bytes, 'file: filename.ext' to send text file\n\
             'filehex: filename.hex' to send hex stream from file" );
