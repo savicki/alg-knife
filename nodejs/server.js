@@ -1,18 +1,23 @@
 
-// TODO: python vers.
+// TODO: port to python
 
 const net   = require( "net" );
 const dgram = require( "dgram" );
-const fs    = require( "fs" );
+
+const mycmn = require( "./common.js" );
+
 
 var argInd = 2;
 var argsCount = process.argv.length - argInd;
+var cwd = process.argv[1];
+
 
 function printUsage()
 {
     console.error( 
 "usage: trans_proto listen_ip listen_port [reply_msg [reply_delay=0]]\n\n\
- reply_msg - prefix '\\x' to reply raw bytes, 'file:filename.ext' to reply file" );
+ reply_msg - prefix '\\x' to send raw bytes, 'file: filename.ext' to send text file\n\
+            'filehex: filename.hex' to send hex stream from file" );
 }
 
 if ( argsCount < 3 )
@@ -32,51 +37,10 @@ send_delay_sec   = ( argsCount >= 6 ) ? parseInt(process.argv[argInd + 4]) : 0;
 
 trans_proto = trans_proto.toLowerCase();
 
-send_buff = null;
-if ( send_data )
-{
-    const hexPrefix = "\\x";
-    var hexPrefixLen = hexPrefix.length;
+send_buff = ( send_data ) ? mycmn.getSendBuf( cwd, send_data ) : null;
 
-    const filePrefix = "file:";
-    var filePrefixLen = filePrefix.length;  
-
-    var isHex = 
-        send_data.length > hexPrefixLen && 
-        send_data.indexOf( hexPrefix ) == 0 &&
-        send_data.length % 2 == 0;
-
-    var isFile = 
-        send_data.length > filePrefixLen && 
-        send_data.indexOf( filePrefix ) == 0
-
-
-    if ( isHex )
-    {
-        send_buff = new Buffer( send_data.substr( hexPrefixLen ), "hex" );
-    }
-    else if ( isFile )
-    {
-        var filename = send_data.substr( filePrefixLen );
-
-        if ( fs.existsSync( filename ) )
-        {
-            send_buff = new Buffer( fs.readFileSync( filename ) );
-        }
-        else
-        {
-            console.error( "file '%s' not found, exit.", filename );
-            return;
-        }
-    }
-    else
-    {
-        send_buff = new Buffer( send_data );
-    }
-
-    console.log( "send_buff (hex): '%s'", send_buff.toString( "hex" ) )
-    console.log( "send_buff (str): '%s'", send_buff.toString( ) )
-}
+if ( send_data && !send_buff )
+    return;
 
 // TODO: -v support
 
