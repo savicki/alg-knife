@@ -1,0 +1,17 @@
+SIP/2.0 200 OK
+Via: SIP/2.0/UDP 172.16.0.4:5060;branch=z9hG4bK-15963-2-0
+From: sipp <sip:sipp@172.16.0.4:5060>;tag=15963SIPpTag002
+To: uac <sip:uac@172.16.0.3:5060>;tag=18691SIPpTag0118
+Call-ID: 2-15963@172.16.0.4
+CSeq: 1 INVITE
+Contact: <sip:172.16.0.3:5060;transport=UDP>
+Content-Type: application/sdp
+Content-Length:   131
+
+v=0
+o=user1 53655765 2353687637 IN IP4 172.16.0.3
+s=-
+c=IN IP4 172.16.0.3
+t=0 0
+m=audio 6000 RTP/AVP 0
+a=rtpmap:0 PCMU/8000

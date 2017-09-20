@@ -16,8 +16,8 @@ function printUsage()
 {
     console.error( 
 "usage: trans_proto dst_ip dst_port [send_msg [send_count=1 [send_delay=0]]]\n\n\
- UDP - send/recv data to/from remote host and keep socket open until exit\n\
- TCP - [send/recv and] stay connected until CTRL+C\n\n\
+ UDP - send and/or recv data to/from remote host and keep socket open until exit\n\
+ TCP - [send and/or recv and] stay connected until exit\n\n\
  send_msg - prefix '\\x' to send raw bytes, 'file: filename.ext' to send text file\n\
             'filehex: filename.hex' to send hex stream from file" );
 }
@@ -58,18 +58,50 @@ if ( trans_proto == "tcp" )
 
     tcp_client.connect( dst_port, dst_ip, function() 
     {
-        console.log( "[tcp] connected to %s:%s", dst_ip, dst_port );
+        console.log( "[tcp] connected [to %s:%s]", dst_ip, dst_port );
     });
 
-    tcp_client.on( "data", function( data )
+    tcp_client.on( "data", function( msg )
     {
-        console.log( "recv> " + data );
+        console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]",
+            msg.toString(), msg.length, dst_ip, dst_port);
     });
 
     tcp_client.on( "close", function()
     {
         console.log( "[tcp] connection closed" );
     });
+
+    tcp_client.on( "error", function()
+    {
+        console.log( "[tcp] connection error" );
+    });
+
+    var ind = 0;
+
+    var doTcpSend = function()
+    {
+        tcp_client.write( send_buff, function()
+        {
+            console.log( "[tcp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s]", 
+                send_buff.toString(), ind + 1, send_buff.length, dst_ip, dst_port );
+
+            if ( ++ind < send_repeat )
+            {
+                timer = setTimeout( doTcpSend, send_delay_sec * 1000 );
+            }
+            // don't exit after send all. At least, to recv all data
+            // else
+            // {
+            //     tcp_client.close();
+            // }
+        });
+    }
+
+    if ( send_buff )
+    {
+        doTcpSend();
+    }
 }
 else if ( trans_proto == "udp" )
 {
@@ -88,7 +120,7 @@ else if ( trans_proto == "udp" )
 
     var ind = 0;
 
-    var doSend = function()
+    var doUdpSend = function()
     {
         udp_client.send( send_buff, 0, send_buff.length, dst_port, dst_ip, function()
         {
@@ -97,7 +129,7 @@ else if ( trans_proto == "udp" )
 
             if ( ++ind < send_repeat )
             {
-                timer = setTimeout( doSend, send_delay_sec * 1000 );
+                timer = setTimeout( doUdpSend, send_delay_sec * 1000 );
             }
             // don't exit after send all. At least, to recv all data
             // else
@@ -107,7 +139,7 @@ else if ( trans_proto == "udp" )
         });
     }
 
-    doSend();
+    doUdpSend();
 }
 else
 {
@@ -123,7 +155,7 @@ process.on('SIGINT', function()
         clearTimeout( timer );
 
     if ( tcp_client )
-        tcp_client.close();
+        tcp_client.destroy();
 
     if ( udp_client )
         udp_client.close();

@@ -1,3 +1,5 @@
 
 - RTP generator, so expectations can be tested
 - support placeholders in text messages, e.g. {listen_ip}:{listen_port}
+- support SIPP xml scenarios
+- send schemas, e.g. {10,24,12,40} for 10+24+12+40 byte-long msg, so ring buffers can be pin-tested. As well as stream helpers.

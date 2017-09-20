@@ -45,6 +45,7 @@ if ( send_data && !send_buff )
 // TODO: -v support
 
 var tcp_server = null;
+var tcp_clients = {};
 var udp_server = null;
 var timer = null;
 
@@ -52,10 +53,41 @@ if ( trans_proto == "tcp" )
 {
     tcp_server = net.createServer( function( socket )
     {
-        console.log( "accept new TCP connection" );
+        console.log( "[tcp] connected [from %s:%s]", socket.remoteAddress, socket.remotePort );
+
+        tcp_clients[socket.remoteAddress + ":" + socket.remotePort] = socket;
+
+        socket.on( "data", function( msg ) 
+        {
+            console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]", 
+                msg.toString(), msg.length, socket.remoteAddress, socket.remotePort );
+
+            if ( send_buff != null )
+            {
+                timer = setTimeout(function()
+                {
+                    socket.write( send_buff, function()
+                    {
+                        console.log( "[tcp] sent>'%s' [%s bytes] [to %s:%s]", 
+                            send_buff.toString(), send_buff.length, socket.remoteAddress, socket.remotePort );
+
+                        //udp_client.close();
+                    });
+
+                }, send_delay_sec * 1000 );
+            }            
+        });
+        
+        // Add a 'close' event handler to this instance of socket
+        socket.on( "close", function() 
+        {
+            delete tcp_clients[socket.remoteAddress + ":" + socket.remotePort];
+
+            console.log( "[tcp] disconnected [from %s:%s]", socket.remoteAddress, socket.remotePort );
+        });
     });
 
-    tcp_server.listen( dst_port, dst_ip );
+    tcp_server.listen( listen_port, listen_ip );
 }
 else if ( trans_proto == "udp" )
 {
@@ -100,6 +132,13 @@ else
 process.on('SIGINT', function() 
 {
     console.log( "Caught interrupt signal" );
+
+    var keys = Object.keys( tcp_clients );
+    for( var i = 0; i < keys.length; i++ )
+    {
+        var client_socket = tcp_clients[ keys[i] ];
+        client_socket.destroy();
+    }
 
     if ( timer )
         clearTimeout( timer );
