@@ -53,6 +53,10 @@ if ( trans_proto == "tcp" )
 {
     tcp_server = net.createServer( function( socket )
     {
+        // linux: fix socket.close event issue where socket's fields are undefined
+        var remoteAddress = socket.remoteAddress;
+        var remotePort = socket.remotePort;
+
         console.log( "[tcp] connected [from %s:%s]", socket.remoteAddress, socket.remotePort );
 
         tcp_clients[socket.remoteAddress + ":" + socket.remotePort] = socket;
@@ -81,9 +85,9 @@ if ( trans_proto == "tcp" )
         // Add a 'close' event handler to this instance of socket
         socket.on( "close", function() 
         {
-            delete tcp_clients[socket.remoteAddress + ":" + socket.remotePort];
+            console.log( "[tcp] disconnected [from %s:%s]", remoteAddress, remotePort );
 
-            console.log( "[tcp] disconnected [from %s:%s]", socket.remoteAddress, socket.remotePort );
+            delete tcp_clients[remoteAddress + ":" + remotePort];
         });
     });
 
