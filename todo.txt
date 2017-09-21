@@ -69,3 +69,6 @@ replace_map_hex =
 }
 
 applyReplaceMap(map, iter, tmpl) // update fields
+
+Cons:
+- hex parser can't handle size-variable responses (SMT, ORCA)
