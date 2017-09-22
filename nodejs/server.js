@@ -26,18 +26,16 @@ if ( argsCount < 3 )
     return;
 }
 
-trans_proto = process.argv[argInd + 0]
-listen_ip = process.argv[argInd + 1]
-listen_port = parseInt(process.argv[argInd + 2])
+var trans_proto = process.argv[argInd + 0].toLowerCase();
+var listen_ip = process.argv[argInd + 1];
+var listen_port = parseInt(process.argv[argInd + 2]);
 
 // data to send, mandatory for UDP
-send_data       = ( argsCount >= 4 ) ? process.argv[argInd + 3] : null;
-send_delay_sec   = ( argsCount >= 6 ) ? parseInt(process.argv[argInd + 4]) : 0;
+var send_data       = ( argsCount >= 4 ) ? process.argv[argInd + 3] : null;
+var send_delay_sec   = ( argsCount >= 6 ) ? parseInt(process.argv[argInd + 4]) : 0;
 
 
-trans_proto = trans_proto.toLowerCase();
-
-send_buff = ( send_data ) ? mycmn.getSendBuf( cwd, send_data ) : null;
+var send_buff = ( send_data ) ? mycmn.getSendBuf( cwd, send_data ) : null;
 
 if ( send_data && !send_buff )
     return;
@@ -51,29 +49,29 @@ var timer = null;
 
 if ( trans_proto == "tcp" )
 {
-    tcp_server = net.createServer( function( socket )
+    tcp_server = net.createServer( function( tcp_client )
     {
         // linux: fix socket.close event issue where socket's fields are undefined
-        var remoteAddress = socket.remoteAddress;
-        var remotePort = socket.remotePort;
+        var remoteAddress = tcp_client.remoteAddress;
+        var remotePort = tcp_client.remotePort;
 
-        console.log( "[tcp] connected [from %s:%s]", socket.remoteAddress, socket.remotePort );
+        console.log( "[tcp] connected [from %s:%s]", remoteAddress, remotePort );
 
-        tcp_clients[socket.remoteAddress + ":" + socket.remotePort] = socket;
+        tcp_clients[remoteAddress + ":" + remotePort] = socket;
 
-        socket.on( "data", function( msg ) 
+        tcp_client.on( "data", function( msg ) 
         {
             console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]", 
-                msg.toString(), msg.length, socket.remoteAddress, socket.remotePort );
+                msg.toString(), msg.length, remoteAddress, remotePort );
 
             if ( send_buff != null )
             {
                 timer = setTimeout(function()
                 {
-                    socket.write( send_buff, function()
+                    tcp_client.write( send_buff, function()
                     {
                         console.log( "[tcp] sent>'%s' [%s bytes] [to %s:%s]", 
-                            send_buff.toString(), send_buff.length, socket.remoteAddress, socket.remotePort );
+                            send_buff.toString(), send_buff.length, remoteAddress, remotePort );
 
                         //udp_client.close();
                     });
@@ -82,8 +80,7 @@ if ( trans_proto == "tcp" )
             }            
         });
         
-        // Add a 'close' event handler to this instance of socket
-        socket.on( "close", function() 
+        tcp_client.on( "close", function() 
         {
             console.log( "[tcp] disconnected [from %s:%s]", remoteAddress, remotePort );
 

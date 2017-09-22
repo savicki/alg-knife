@@ -10,6 +10,33 @@
 {{remote_ip}}, {{remote_port}}
 {{iter_num}}
 
+Samples:
+
+	"filehex: sccp_tcp_smt.hex" "writehex: sccp_tcp_smt.wmap" "readhex: sccp_tcp_smt.rmap"
+	"filetxt: sip_invite.txt"   "readtxt: sip_invite.rmap"
+
+	"rtp: {{rtp_proto}} {{local_ip}} {{iter_num+1024}} {{rtp_remote_ip}} {{rtp_remote_port}} emit_data"
+
+
+CLIENT 				 SERVER
+
+build msg
+send msg  ---------> recv msg
+                     parse msg *
+
+                     build msg
+recv msg  <--------- send msg **
+parse msg *, **
+
+REPEAT
+
+
+"build msg" - env.vars to fields
+"parse msg" - fields to env.vars
+* - ready to accept RTP flow (start listening)
+** - ready initiate RTP flow
+
+
 
 "file: sip_tcp_invite.txt" can contain {{xxx}} placehodlers, e.g.:
 
@@ -34,7 +61,7 @@ m=audio {{iter_num+1024}} RTP/AVP 0
 a=rtpmap:0 PCMU/8000
 
 
-"filehex: sccp_tcp_smt.txt" can't contain placehodlers, instead specify them as offset:len:value in "writehex: " file, "readhex: " to 
+"filehex: sccp_tcp_smt.txt" can't contain placeholders, instead, specify them as offset:len:value in "writehex: " file, "readhex: " to 
 "filetxt: sip_invite.txt", "readtxt: "
 
 "writehex: "
@@ -68,7 +95,10 @@ replace_map_hex =
 	byte_offset:len:func,
 }
 
-applyReplaceMap(map, iter, tmpl) // update fields
+applyWriteMap(map, iter, tmpl) 	// update fields before sending msg
+applyReadMap(map, msg, envVars)	// fetch fields into env vars
+
 
 Cons:
 - hex parser can't handle size-variable responses (SMT, ORCA)
+- DNS support?

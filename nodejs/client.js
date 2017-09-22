@@ -28,19 +28,18 @@ if ( argsCount < 3 )
     return;
 }
 
-trans_proto = process.argv[argInd + 0]
-dst_ip = process.argv[argInd + 1]
-dst_port = parseInt(process.argv[argInd + 2])
+var trans_proto = process.argv[argInd + 0].toLowerCase();
+var dst_ip = process.argv[argInd + 1];
+var dst_port = parseInt(process.argv[argInd + 2]);
 
 // data to send, mandatory for UDP
-send_data       = ( argsCount >= 4 ) ? process.argv[argInd + 3] : null;
+var send_data       = ( argsCount >= 4 ) ? process.argv[argInd + 3] : null;
 // send amount
-send_repeat      = ( argsCount >= 5 ) ? parseInt(process.argv[argInd + 4]) : 1;
-send_delay_sec   = ( argsCount >= 6 ) ? parseInt(process.argv[argInd + 5]) : 0;
+var send_repeat      = ( argsCount >= 5 ) ? parseInt(process.argv[argInd + 4]) : 1;
+var send_delay_sec   = ( argsCount >= 6 ) ? parseInt(process.argv[argInd + 5]) : 0;
 
-trans_proto = trans_proto.toLowerCase();
 
-send_buff = ( send_data ) ? mycmn.getSendBuf( cwd, send_data ) : null;
+var send_buff = ( send_data ) ? mycmn.getSendBuf( cwd, send_data ) : null;
 
 if ( send_data && !send_buff )
     return;
