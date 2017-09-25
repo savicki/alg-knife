@@ -746,6 +746,47 @@ function getEnv()
     return env;
 }
 
+function compileBufs( args )
+{
+    var isHexMode = args.sendData.isHex;
+    var sendComp, recvComp;
+
+    // compile send data
+    if ( isHexMode )
+    {
+        var writeMap = args["wmap"] ? fs.readFileSync( args["wmap"] ) : "";
+        
+        sendComp = compileBuf( false /* !recv */, args.sendData.buffer, writeMap /* hex */ );
+    }
+    else
+    {
+        sendComp = compileBuf( false /* !recv */, args.sendData.buffer, null /* !hex */ );
+    }
+
+    // compile recv data
+    if ( args["rmap"] )
+    {
+        var readMap = fs.readFileSync( args["rmap"] );
+
+        if ( isHexMode )
+        {
+            recvComp = compileBuf( true /* recv */, null, readMap /* hex */ );
+        }
+        else
+        {
+            recvComp = compileBuf( true /* recv */, readMap, null /* !hex */ );
+        }
+    }
+
+    var res = 
+    {
+        "recvComp" : recvComp,
+        "sendComp" : sendComp
+    };
+
+    return res;
+}
+
 // module.exports.updateEnvVars    = updateEnvVars;
 // module.exports.printEnvVars     = printEnvVars;
 //module.exports.getSendDataInfo  = getSendDataInfo;
@@ -756,3 +797,4 @@ module.exports.runBuf           = runBuf;
 module.exports.emitRTP          = emitRTP;
 module.exports.parseArgs        = parseArgs;
 module.exports.getEnv           = getEnv;
+module.exports.compileBufs      = compileBufs;

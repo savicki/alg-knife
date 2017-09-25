@@ -46,37 +46,13 @@ var env = mycmn.getEnv();
 var sendComp = null, recvComp = null;
 
 
-var isHexMode;
-{
-    isHexMode = args.sendData.isHex;
+var cInfo = mycmn.compileBufs( args );
 
-    // compile send data
-    if ( isHexMode )
-    {
-        var writeMap = args["wmap"] ? fs.readFileSync( args["wmap"] ) : "";
-        
-        sendComp = mycmn.compileBuf( false /* !recv */, args.sendData.buffer, writeMap /* hex */ );
-    }
-    else
-    {
-        sendComp = mycmn.compileBuf( false /* !recv */, args.sendData.buffer, null /* !hex */ );
-    }
+var sendComp = cInfo.sendComp;
+var recvComp = cInfo.recvComp;
 
-    // compile recv data
-    if ( args["rmap"] )
-    {
-        var readMap = fs.readFileSync( args["rmap"] );
+var isHexMode = args.sendData.isHex;
 
-        if ( isHexMode )
-        {
-            recvComp = mycmn.compileBuf( true /* recv */, null, readMap /* hex */ );
-        }
-        else
-        {
-            recvComp = mycmn.compileBuf( true /* recv */, readMap, null /* !hex */ );
-        }
-    }   
-}
 
 env.update(
 {
@@ -90,7 +66,7 @@ var sendData = mycmn.runBuf( sendComp, env, null /* no recv buffer */ );
 console.log( sendData.toString( isHexMode ? "HEX" : "" ) )
 
 //var recvData = fs.readFileSync( "./samples/SIP/sip_tcp_invite.txt" );
-//var recvData = fs.readFileSync( "./samples/sccp/sccp_smt.hex" );
+var recvData = fs.readFileSync( "./samples/sccp/sccp_smt.hex" );
 // recv txt
 if ( recvComp ) // verify MSG and/or update ENV vars
 {
