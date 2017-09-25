@@ -3,7 +3,104 @@ const fs    = require( "fs" );
 const path  = require('path');
 
 
-function getSendBuf( cwd, send_data ) 
+
+function __strToBytes( str, retLen )
+{
+    // TODO: size of return buffer must be == retLen
+    var buffer = new Buffer( retLen );
+    var match;
+
+    console.log( "[__strToBytes] str = '%s', retLen = '%s'", str, retLen );
+
+    // TODO: support fixed @retLen values
+    if ( typeof(str) == 'number' )
+    {
+        // TODO: check @retLen value
+
+        buffer.writeInt32BE( str, 0 );
+    }
+    else
+    if ( match = str.match( /(\d+).(\d+).(\d+).(\d+)/ ) )
+    {
+        for ( ind = 0; ind < 4; ind++ )
+        {
+            var octet = parseInt( match[ind + 1] ) & 0xFF;
+           
+            buffer.writeUInt8( octet, ind );
+        }
+    }
+
+    console.log( "[__strToBytes] buffer : ", buffer );
+
+    return buffer;
+}
+
+function __bytesToStr( bytes, fieldName )
+{
+    var str = "";
+
+    console.log( "[__bytesToStr] fieldName = '%s', buffer: ", fieldName, bytes );
+
+    if ( /_ip/.test( fieldName ) && bytes.length == 4 )
+    {
+        str = bytes.join( "." );
+    }
+    // TODO: proto?
+    else // port, iter_num, thread_num
+    {
+        str = bytes.readUInt32LE( 0 ).toString();
+    }
+
+    console.log( "[__bytesToStr] str = '%s'", str );
+
+    return str;
+}
+
+function __newFuncInfo( func, immutableArgs )
+{
+    funcCtx = 
+    {
+        "func" : func,
+        "args" : immutableArgs
+    }
+
+    return funcCtx;
+}
+
+function __runFunc( env, funcInfo, funcArgs )
+{
+    console.log( "[__runFunc] : ", funcInfo );
+
+    return funcInfo.func( env, funcInfo.args, funcArgs );
+}
+
+function __evalStrToEnv( env, fieldName, strValue )
+{
+    if ( fieldName.startsWith( "env.assert" ) )
+    {
+        var realValue;
+
+        evalStr = "realValue = " + fieldName;
+
+        console.log( evalStr );
+        eval( evalStr );
+
+        if ( realValue != strValue )
+        {
+            console.error( "*** assert failed: real '%s' != recv '%s'", 
+                realValue, strValue );
+        }
+    }
+    else
+    {
+        var evalStr = fieldName + " = " + "\"" + strValue + "\""
+
+        console.log( evalStr );
+        eval( evalStr );
+    }
+}
+
+function __getSendDataInfo( cwd, send_data ) 
 {
     const hexPrefix = "\\x";
     var hexPrefixLen = hexPrefix.length;
@@ -74,7 +171,332 @@ function getSendBuf( cwd, send_data )
     console.log( "send_buff (hex): '%s'", send_buff.toString( "hex" ) );
     console.log( "send_buff (str): '%s'", send_buff.toString( ) );
     
-    return send_buff;
+
+    var res = 
+    {
+        "buffer" : send_buff,
+        "isHex"  : isHex | isFileHex
+    };
+
+    return res;
+}
+
+
+
+
+function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
+{
+    var compiledBuf = 
+    {
+        "useNative" : true,
+        "compiled"  : null,
+        "fmap"      : {},
+        "fargs"     : {},
+        "isHex"     : hexMap !== undefined && hexMap !== null,
+        "isRecv"    : isReceival
+    };
+
+    var fmap = {}
+    var funcInfo;
+
+
+    if ( hexMap )
+    {
+        var __evalEnvFromBytes = function( env, immutableArgs, fArgs ) 
+        {
+            var fieldName = immutableArgs;
+            
+            bytesLen    = fArgs["bytesLen"];
+            offset      = fArgs["offset"];
+            recvBuf     = fArgs["rawBytes"];
+
+            console.log( "[__evalFromBytes] fieldName: '%s', offset: '%s', bytesLen: '%s'", fieldName, offset, bytesLen );
+            
+            if ( offset + bytesLen <= recvBuf.length )
+            {
+                var bytes = new Buffer( bytesLen );
+
+                for ( var bytesInd = 0, bytesLen = bytes.length; bytesInd < bytesLen; bytesInd++ )
+                {
+                    bytes[bytesInd] = recvBuf[offset + bytesInd];
+                }
+
+                strValue = __bytesToStr( bytes, fieldName );
+                
+                
+                __evalStrToEnv( env, fieldName, strValue );                
+            }
+        }
+
+        var __evalEnvToBytes = function( env, immutableArgs, fArgs ) 
+        { 
+            var evalStr = immutableArgs;
+           
+            bytesLen    = fArgs["bytesLen"];
+            offset      = fArgs["offset"];
+            sendBytes   = fArgs["rawBytes"];
+
+            console.log( "[__evalToBytes] evalStr: '%s', offset: '%s', bytesLen: '%s'", evalStr, offset, bytesLen );
+
+            var bytes = __strToBytes( eval( evalStr ) /* with @env */, bytesLen );
+
+            if ( offset + bytesLen <= sendBytes.length )
+            {
+                for ( var bytesInd = 0, bytesLen = bytes.length; bytesInd < bytesLen; bytesInd++ )
+                {
+                    sendBytes[offset + bytesInd] = bytes[bytesInd];
+                }
+            }
+        }
+
+
+        var hexMapStr = hexMap.toString();
+        var lines = hexMapStr.split( /\r|\n|\r\n/ );
+
+
+        for ( var i = 0, len = lines.length; i < len; i++ )
+        {
+            var line = lines[i];
+
+            if ( line.indexOf( "#") == 0 )
+                continue;
+
+            var match = line.match( /(\d+):(\d?):{{([^}]+)}}/ );
+
+            if ( !match )
+                continue;
+
+            var offset = parseInt( match[1] );
+            var bytesLen = match[2] ? parseInt( match[2] ) : 4;
+            var tmplVar = match[3];
+
+            if ( fmap[tmplVar] )
+            {
+                funcInfo = fmap[tmplVar];
+            }
+            else
+            {
+                var evalStr = tmplVar.replace( /([a-zA-Z_]+)/g, "env.$1" );
+
+                funcInfo = __newFuncInfo( isReceival ? __evalEnvFromBytes : __evalEnvToBytes, evalStr );
+
+                fmap[tmplVar] = funcInfo;
+            }
+
+            if ( compiledBuf["fmap"][offset] === undefined )
+            {
+                compiledBuf["fmap"][offset] = [];
+                compiledBuf["fargs"][offset] = [];
+            }
+
+            compiledBuf["fmap"][offset].push( funcInfo );
+            compiledBuf["fargs"][offset].push(
+            {
+                "bytesLen" : bytesLen,
+                "offset"   : offset
+            });
+        }
+
+        // for sent, keep data to process-then-send
+        if ( isReceival == false )
+            compiledBuf["compiled"] = sendBuf;
+    }
+    else // ! hex
+    {
+        var sendBufStr = sendBuf.toString();
+        var funcInd = 0;
+        
+
+        if ( isReceival )
+        {
+            var __evalEnvFromStr = function( env, immutableArgs, args )
+            {
+                var evalStr = immutableArgs;
+                var strValue = args["rawStr"];
+
+                console.log( "[__evalEnvFromStr] evalStr = '%s'", evalStr );
+
+                __evalStrToEnv( env, evalStr, strValue ); 
+            }
+
+            var matchInd = 0;
+
+            sendBufStr = sendBufStr.replace( /{{([^}]+)}}(?:{{([^}]+)}})?/g, function( match, p1, p2 )
+            {
+                console.log( p1, p2 )
+
+                if ( p2 )
+                {
+                    var tmplVar = p1 + p2;
+
+                    if ( fmap[tmplVar] )
+                    {
+                        funcInfo = fmap[tmplVar];
+                    }
+                    else
+                    {
+                        fmap[tmplVar] = funcInfo;
+
+
+                        var evalStr = p2.replace( /([a-zA-Z_]+)/g, "env.$1" );
+
+                        funcInfo = __newFuncInfo( __evalEnvFromStr, evalStr );
+                    }
+
+                    compiledBuf["fmap"][matchInd] = funcInfo;
+                    compiledBuf["fargs"][matchInd] = {};
+                }
+
+                matchInd++;
+
+                return p1;
+            });
+        }
+        else
+        {
+            var __evalEnvToStr = function( env, immutableArgs, args )
+            {
+                var evalStr = immutableArgs;
+
+                console.log( "[__evalToStr] evalStr = '%s'", evalStr );
+
+                return eval( evalStr );
+            }
+
+            sendBufStr = sendBufStr.replace( /{{([^}]+)}}/g, function( match, p1 )
+            {
+                var tmplVar = p1;
+                var funcName;
+
+                if ( fmap[tmplVar] )
+                {
+                    funcName = fmap[tmplVar].name;
+                }
+                else
+                {
+                    funcName = "func_" + funcInd++;
+
+                    var evalStr = tmplVar.replace( /([a-zA-Z_]+)/g, "env.$1" );
+
+                    funcInfo = __newFuncInfo( __evalEnvToStr, evalStr );
+
+                    fmap[tmplVar] = 
+                    {
+                        "name" : funcName,
+                        "func" : funcInfo
+                    };
+
+                    compiledBuf["fmap"][funcName] = funcInfo;
+                    compiledBuf["fargs"][funcName] = {};
+                }
+
+                return "{{" + funcName + "}}";
+            });
+        }
+
+        // for sent, keep here data to process-then-send
+        // for recv, keep recv pattern - recv-then-process
+        compiledBuf["compiled"] = sendBufStr;
+    }
+
+    compiledBuf["useNative"] = ( Object.keys( compiledBuf["fmap"] ) == 0 );
+
+    // dump compiled info
+    console.log( "[compileBuf] ", compiledBuf );
+
+    return compiledBuf;
+}
+
+function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes! */ )
+{
+    var isReceival = compiledInfo.isRecv;
+    var isHex = compiledInfo.isHex;
+
+    // unprocessed by "interpreter" data
+    var dataBuf = ( isReceival ) ? recvBuf : compiledInfo.compiled; 
+
+    console.log( "[runBuf] dataBuf IN: '%s'", dataBuf.toString( isHex ? "hex" : "" ) );
+
+    if ( compiledInfo.useNative )
+    {
+        return dataBuf;
+    }
+    else
+    {
+        if ( compiledInfo.isHex )
+        {
+            var offsets = Object.keys( compiledInfo["fmap"] );
+            var evalFunc, retLen, bytes;
+
+            for( var i = 0, len = offsets.length; i < len; i++ )
+            {
+                offset = parseInt( offsets[i] );
+
+                funcInfoArr = compiledInfo["fmap"][offset];
+                funcArgsArr = compiledInfo["fargs"][offset];
+
+                var funcInfo, funcArgs;
+
+                for ( var ind = 0; ind < funcInfoArr.length; ind++ )
+                {
+                    funcInfo = funcInfoArr[ind];
+                    funcArgs = funcArgsArr[ind];
+
+                    funcArgs["rawBytes"] = dataBuf; 
+
+                    // [send] internally modify dataBuf
+                    __runFunc( env, funcInfo, funcArgs );
+                }
+            }
+        }
+        else
+        {
+            if ( isReceival )
+            {
+                var dataBufStr = dataBuf.toString();
+
+                //console.log( compiledInfo.compiled )
+
+                var match = dataBufStr.match( "^" + compiledInfo.compiled + "$" );
+
+                var matchIndexes = Object.keys( compiledInfo["fmap"] );
+
+                for( var i = 0, len = matchIndexes.length; i < len; i++ )
+                {
+                    var matchIndex = parseInt( matchIndexes[i] );
+
+                    console.log( "**** " + match[matchIndex + 1] )
+
+                    funcInfo = compiledInfo["fmap"][matchIndex];
+                    funcArgs = compiledInfo["fargs"][matchIndex];
+
+                    funcArgs["rawStr"] = match[matchIndex + 1];
+
+                    __runFunc( env, funcInfo, funcArgs );
+                }
+            }
+            else
+            {
+                dataBuf = dataBuf.replace( /{{([^}]+)}}/g, function( match, p1 )
+                {
+                    var funcName = p1;
+
+                    funcInfo = compiledInfo["fmap"][funcName];
+                    funcArgs = compiledInfo["fargs"][funcName];
+
+                    funcArgs["rawStr"] = p1; // not used, here just as guideline
+                    
+                    var replacement = __runFunc( env, funcInfo, funcArgs );
+
+                    return replacement;
+                });
+            }
+        }
+
+        console.log( "[runBuf] dataBuf OUT: '%s'", dataBuf.toString( isHex ? "hex" : "" ) );
+    }
+
+    return dataBuf;
 }
 
 // CLIENT: invoked after receiving response (and parsing it) from vs.
@@ -138,11 +560,11 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg 
 
             var connectOpts = 
             {
-                localAddress  : local_ip,
+                localAddress : local_ip,
                 localPort : local_port,
                 family : 4,
                 host : dst_ip,
-                port : dst_port,
+                port : dst_port
             };
 
             tcp_client.connect( connectOpts, function() 
@@ -222,6 +644,115 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg 
     }
 }
 
+// tcp 127.0.0.1 9001 "\x0000" "rep: 3" "wmap: "  "rmap: "
 
-module.exports.getSendBuf   = getSendBuf;
-module.exports.emitRTP      = emitRTP;
+// tcp 127.0.0.1 9001 "\x0000" "rep: 3" "delay: 2" "wmap: "  "rmap: "
+
+function parseArgs( argv, helpFn )
+{
+    var argInd = 2;
+    var argsCount = argv.length - argInd;
+
+    if ( argsCount < 4 )
+    {
+        helpFn();
+
+        return null;
+    }
+
+    var sendDataInfo = __getSendDataInfo( argv[1] /* cwd */, process.argv[argInd + 3] );
+
+    var args = 
+    {
+        "cwd"       : argv[1],
+        "proto"     : process.argv[argInd + 0].toLowerCase(),
+        "ip"        : process.argv[argInd + 1],
+        "port"      : parseInt(process.argv[argInd + 2]),
+        "sendData"  : sendDataInfo
+    };
+
+    var optArgs = [ "rep", "delay", "wmap", "rmap" ];
+
+    for ( var ind = argInd + 4; ind < argv.length; ind++ )
+    {
+        var argNameValue = argv[ind];
+
+        console.log( argNameValue )
+
+        for ( var j = 0; j < optArgs.length; j++ )
+        {
+            var optArg = optArgs[j];
+
+            if ( argNameValue.startsWith( optArg + ": " ) )
+            {
+                var argValueStr = argNameValue.substr( (optArg + ": ").length );
+
+                var argValueInt = parseInt( argValueStr );
+
+                if ( argValueInt.toString() == argValueStr )
+                    args[optArg] = argValueInt;
+                else
+                    args[optArg] = argValueStr;
+            }
+        }
+    }
+
+    console.log( "[parseArgs] : args: ", args );
+
+    return args;
+}
+
+function getEnv()
+{
+    var env = 
+    {
+        "remote_ip" : "127.0.0.1",
+        "remote_port" : 12,
+
+        update : function( vars )
+        {
+            var keys = Object.keys( vars );
+
+            for( var i = 0; i < keys.length; i++ )
+            {
+                var key = keys[i];
+
+                this[key] = vars[key];
+            }
+        },
+
+        print : function()
+        {
+            var keys = Object.keys( this );
+
+            for( var i = 0; i < keys.length; i++ )
+            {
+                var key = keys[i];
+
+                if ( typeof( this[key] ) != "function" )
+                    console.log( "'%s':'%s'", key, this[key] );
+            }
+        },
+
+        // env.assert( env.remote_ip )
+        assert : function( fieldValue ) 
+        {
+            console.log( "[assert] : fieldValue = %s", fieldValue );
+
+            return fieldValue;
+        }        
+    }
+
+    return env;
+}
+
+// module.exports.updateEnvVars    = updateEnvVars;
+// module.exports.printEnvVars     = printEnvVars;
+//module.exports.getSendDataInfo  = getSendDataInfo;
+
+module.exports.compileBuf       = compileBuf;
+module.exports.runBuf           = runBuf;
+
+module.exports.emitRTP          = emitRTP;
+module.exports.parseArgs        = parseArgs;
+module.exports.getEnv           = getEnv;

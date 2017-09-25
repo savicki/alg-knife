@@ -57,7 +57,7 @@ if ( trans_proto == "tcp" )
 
         console.log( "[tcp] connected [from %s:%s]", remoteAddress, remotePort );
 
-        tcp_clients[remoteAddress + ":" + remotePort] = socket;
+        tcp_clients[remoteAddress + ":" + remotePort] = tcp_client;
 
         tcp_client.on( "data", function( msg ) 
         {

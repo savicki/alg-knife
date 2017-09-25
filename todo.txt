@@ -3,17 +3,20 @@
 - support SIPP xml scenarios
 - support dialog?
 - send schemas, e.g. {10,24,12,40} for 10+24+12+40 byte-long msg, so ring buffers can be pin-tested. As well as stream helpers.
-
+- v support
 - support placeholders in text messages, e.g. {listen_ip}:{listen_port}, {iter_num}
 
+{{proto}}
 {{local_ip}}, {{local_port}}
 {{remote_ip}}, {{remote_port}}
-{{iter_num}}
+{{iter_num}}, {{thread_num}}
 
 Samples:
 
-	"filehex: sccp_tcp_smt.hex" "writehex: sccp_tcp_smt.wmap" "readhex: sccp_tcp_smt.rmap"
-	"filetxt: sip_invite.txt"   "readtxt: sip_invite.rmap"
+	tcp 127.0.0.1 9001 "\x0000" "rep: 3" "delay: 2" "wmap: "  "rmap: "
+	"\x000000" / "filehex: sccp_tcp_smt.hex" 	"wmap: sccp_tcp_smt.wmap" "rmap: sccp_tcp_smt.rmap"
+	"abc" / "filetxt: sip_invite.txt" 			"rmap: sip_invite.rmap"
+
 
 	"rtp: {{rtp_proto}} {{local_ip}} {{iter_num+1024}} {{rtp_remote_ip}} {{rtp_remote_port}} emit_data"
 
@@ -30,12 +33,40 @@ parse msg *, **
 
 REPEAT
 
+  [tmpl]                                   [to send]
+sendBuffer [+.wmap] --> compSendBuffer --> sendBuffer
+           [+.rmap] --> compRecvBuffer + recvBuffer --> env
 
 "build msg" - env.vars to fields
 "parse msg" - fields to env.vars
 * - ready to accept RTP flow (start listening)
 ** - ready initiate RTP flow
 
+
+send_buf: 			"xxx {{local_ip + iter_num + 2000}} zzz {{local_ip + iter_num + 2001}} qqq"
+send_buf_compiled:  "xxx {{func_1}} zzz {{func_2}} qqq"
+					+
+	"func_1" : function(env) { return eval("env.local_ip + env.iter_num + 2000") }
+	"func_2" : function(env) { return eval("env.local_ip + env.iter_num + 2001") }
+
+get eval exp.:
+	"local_ip + iter_num + 2000" => "envArg.local_ip + envArg.iter_num + 2000"
+build eval func:
+	"func_1" : function(envArg) { return __toBytes( eval( "envArg.local_ip + envArg.iter_num + 2000" ) ) }
+run:
+	"xxx {{func_1}} zzz {{func_2}} qqq"
+
+send_buf_compiled = 
+{
+	"use_native" : false,
+	"compiled"   : "",
+	"funcs" 	 : {},
+	"isHex" 	 : false
+}
+
+1) send_buf <== .txt, .hex
+2) send_buf_compiled = compile_write( send_buf, write_map /* for hex */ ) // if placeholder unknown, it will raise exception at *run* time
+3) send_buf = run_write( send_buf_compiled, env )
 
 
 "file: sip_tcp_invite.txt" can contain {{xxx}} placehodlers, e.g.:
@@ -64,9 +95,12 @@ a=rtpmap:0 PCMU/8000
 "filehex: sccp_tcp_smt.txt" can't contain placeholders, instead, specify them as offset:len:value in "writehex: " file, "readhex: " to 
 "filetxt: sip_invite.txt", "readtxt: "
 
+ip2intLE
+ip2intBE
+
 "writehex: "
 > # offset:len:value
-> 16:4:{{local_ip}}
+> 16:4:{{ip2intLE(local_ip)}}
 > 32:4:{{iter_num+1024}}
 
 "readhex: "
@@ -79,6 +113,21 @@ a=rtpmap:0 PCMU/8000
 c=IN IP4 (\d+.\d+.\d+.\d+)
 {{rtp_remote_port}}
 m=audio (\d) RTP/AVP 0
+
+INVITE sip:uac@{{(\d+.\d+.\d+.\d+)}{{remote_ip}}:5060 SIP/2.0
+Via: SIP/2.0/TCP {{local_ip}}:5060;branch=z9hG4bK-16003-1-0
+From: sipp <sip:sipp@{{local_ip}}:5060>;tag=16003SIPpTag001
+To: uac <sip:uac@{{remote_ip}}:5060>
+Call-ID: 1-16003@{{local_ip}}
+CSeq: 1 INVITE
+Contact: sip:sipp@{{local_ip}}:5060
+Max-Forwards: 70
+Subject: Performance Test
+Content-Type: application/sdp
+Content-Length:   131
+
+
+
 
 
 send_buf updated (via "writehex:" or placeholders directly in txt) each time before sending on new iteration
