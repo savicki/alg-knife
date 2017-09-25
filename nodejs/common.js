@@ -48,7 +48,7 @@ function __bytesToStr( bytes, fieldName )
     // TODO: proto?
     else // port, iter_num, thread_num
     {
-        str = bytes.readUInt32LE( 0 ).toString();
+        str = bytes.readUInt32BE( 0 ).toString();
     }
 
     console.log( "[__bytesToStr] str = '%s'", str );
@@ -671,7 +671,7 @@ function parseArgs( argv, helpFn )
         "sendData"  : sendDataInfo
     };
 
-    var optArgs = [ "rep", "delay", "wmap", "rmap" ];
+    var optArgs = [ "rep", "delay", "wmap", "rmap", "rtp" ];
 
     for ( var ind = argInd + 4; ind < argv.length; ind++ )
     {
@@ -787,8 +787,6 @@ function compileBufs( args )
     return res;
 }
 
-// module.exports.updateEnvVars    = updateEnvVars;
-// module.exports.printEnvVars     = printEnvVars;
 //module.exports.getSendDataInfo  = getSendDataInfo;
 
 module.exports.compileBuf       = compileBuf;

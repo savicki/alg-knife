@@ -34,8 +34,6 @@ if ( !args )
 var trans_proto     = args["proto"];
 var dst_ip          = args["ip"];
 var dst_port        = args["port"];
-// var send_data       = process.argv[argInd + 3];
-
 var send_repeat      = args["rep"] || 1;
 var send_delay_sec   = args["delay"] || 0;
 
@@ -43,11 +41,7 @@ var send_delay_sec   = args["delay"] || 0;
 
 var env = mycmn.getEnv();
 
-var sendComp = null, recvComp = null;
-
-
 var cInfo = mycmn.compileBufs( args );
-
 var sendComp = cInfo.sendComp;
 var recvComp = cInfo.recvComp;
 
@@ -62,21 +56,18 @@ env.update(
 });
 
 // send hex/txt
-var sendData = mycmn.runBuf( sendComp, env, null /* no recv buffer */ );
-console.log( sendData.toString( isHexMode ? "HEX" : "" ) )
+//var sendData = mycmn.runBuf( sendComp, env, null /* no recv buffer */ );
+//console.log( sendData.toString( isHexMode ? "HEX" : "" ) )
 
 //var recvData = fs.readFileSync( "./samples/SIP/sip_tcp_invite.txt" );
-var recvData = fs.readFileSync( "./samples/sccp/sccp_smt.hex" );
+//var recvData = fs.readFileSync( "./samples/sccp/sccp_smt.hex" );
 // recv txt
-if ( recvComp ) // verify MSG and/or update ENV vars
-{
-    recvData = mycmn.runBuf( recvComp, env, recvData /* recvData, bytes */ );
-    console.log( recvData.toString( isHexMode ? "HEX" : "" ) )
-}
-env.print();
-
-return;
-
+//if ( recvComp ) // verify MSG and/or update ENV vars
+//{
+//    recvData = mycmn.runBuf( recvComp, env, recvData /* recvData, bytes */ );
+//    console.log( recvData.toString( isHexMode ? "HEX" : "" ) )
+//}
+//env.print();
 
 
 var tcp_client = null;
@@ -89,7 +80,7 @@ if ( trans_proto == "tcp" )
 
     tcp_client.connect( dst_port, dst_ip, function() 
     {
-        mycmn.updateEnvVars( env,
+        env.update(
         {
             "local_ip" : tcp_client.localAddress,
             "local_port" : tcp_client.localPort,
@@ -98,25 +89,25 @@ if ( trans_proto == "tcp" )
         console.log( "[tcp] connected [to %s:%s] [from %s:%s]", 
             dst_ip, dst_port, tcp_client.localAddress, tcp_client.localPort );
 
-        //mycmn.printEnvVars( env );
+        //env.print();
 
         var ind = 0;
 
         var doTcpSend = function()
         {
-            mycmn.updateEnvVars( env,
+            env.update(
             {
                 "iter_num" : ind
             });
 
-            //mycmn.printEnvVars( env );
+            //env.print();
             
-            var sendBuff = mycmn.runSendBuf( sendBuffCompiled, env );
+            var sendData = mycmn.runBuf( sendComp, env );
 
-            tcp_client.write( sendBuff, function()
+            tcp_client.write( sendData, function()
             {
                 console.log( "[tcp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s]", 
-                    sendBuff.toString(), ind + 1, sendBuff.length, dst_ip, dst_port );
+                    sendData.toString( isHexMode ? "HEX" : "" ), ind + 1, sendData.length, dst_ip, dst_port );
 
                 if ( ++ind < send_repeat )
                 {
@@ -130,7 +121,7 @@ if ( trans_proto == "tcp" )
             });
         }
 
-        if ( sendBuffCompiled )
+        if ( sendComp )
         {
             doTcpSend();
         }

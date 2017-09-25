@@ -3,13 +3,10 @@
 
 const net   = require( "net" );
 const dgram = require( "dgram" );
+const fs    = require( "fs" );
 
 const mycmn = require( "./common.js" );
 
-
-var argInd = 2;
-var argsCount = process.argv.length - argInd;
-var cwd = process.argv[1];
 
 
 function printUsage()
@@ -20,27 +17,39 @@ function printUsage()
             'filehex: filename.hex' to send hex stream from file" );
 }
 
-if ( argsCount < 3 )
+
+var args = mycmn.parseArgs( process.argv, printUsage );
+
+if ( !args )
+    return;
+
+
+var trans_proto     = args["proto"];
+var listen_ip       = args["ip"];
+var listen_port     = args["port"];
+var send_repeat     = args["rep"] || 1;
+var send_delay_sec  = args["delay"] || 0;
+
+
+
+var env = mycmn.getEnv();
+
+var cInfo = mycmn.compileBufs( args );
+var sendComp = cInfo.sendComp;
+var recvComp = cInfo.recvComp;
+
+var isHexMode = args.sendData.isHex;
+
+
+env.update(
 {
-    printUsage();
-    return;
-}
-
-var trans_proto = process.argv[argInd + 0].toLowerCase();
-var listen_ip = process.argv[argInd + 1];
-var listen_port = parseInt(process.argv[argInd + 2]);
-
-// data to send, mandatory for UDP
-var send_data       = ( argsCount >= 4 ) ? process.argv[argInd + 3] : null;
-var send_delay_sec   = ( argsCount >= 6 ) ? parseInt(process.argv[argInd + 4]) : 0;
-
-
-var send_buff = ( send_data ) ? mycmn.getSendBuf( cwd, send_data ) : null;
-
-if ( send_data && !send_buff )
-    return;
+    "proto" : trans_proto,
+    "local_ip" : listen_ip,
+    "local_port" : listen_port,
+});
 
 // TODO: -v support
+
 
 var tcp_server = null;
 var tcp_clients = {};
@@ -59,19 +68,36 @@ if ( trans_proto == "tcp" )
 
         tcp_clients[remoteAddress + ":" + remotePort] = tcp_client;
 
+        var ind = 0;
+        
         tcp_client.on( "data", function( msg ) 
         {
+            env.update(
+            {
+                "iter_num" : ind
+            });
+
             console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]", 
                 msg.toString(), msg.length, remoteAddress, remotePort );
 
-            if ( send_buff != null )
+            if ( recvComp ) // verify MSG and/or update ENV vars
+            {
+               msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+               console.log( msg.toString( isHexMode ? "HEX" : "" ) )
+               env.print();
+            }
+
+
+            //if ( send_buff != null )
             {
                 timer = setTimeout(function()
                 {
-                    tcp_client.write( send_buff, function()
+                    var sendData = mycmn.runBuf( sendComp, env );
+
+                    tcp_client.write( sendData, function()
                     {
                         console.log( "[tcp] sent>'%s' [%s bytes] [to %s:%s]", 
-                            send_buff.toString(), send_buff.length, remoteAddress, remotePort );
+                            sendData.toString( isHexMode ? "HEX" : ""  ), sendData.length, remoteAddress, remotePort );
 
                         //udp_client.close();
                     });
