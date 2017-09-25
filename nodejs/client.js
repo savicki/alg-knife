@@ -100,10 +100,10 @@ if ( trans_proto == "tcp" )
                 "iter_num" : ind
             });
 
-            //env.print();
-            
             var sendData = mycmn.runBuf( sendComp, env );
 
+            env.print();
+            
             tcp_client.write( sendData, function()
             {
                 console.log( "[tcp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s]", 

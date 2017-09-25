@@ -210,7 +210,7 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
             offset      = fArgs["offset"];
             recvBuf     = fArgs["rawBytes"];
 
-            console.log( "[__evalFromBytes] fieldName: '%s', offset: '%s', bytesLen: '%s'", fieldName, offset, bytesLen );
+            console.log( "[__evalEnvFromBytes] fieldName: '%s', offset: '%s', bytesLen: '%s'", fieldName, offset, bytesLen );
             
             if ( offset + bytesLen <= recvBuf.length )
             {
@@ -236,7 +236,16 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
             offset      = fArgs["offset"];
             sendBytes   = fArgs["rawBytes"];
 
-            console.log( "[__evalToBytes] evalStr: '%s', offset: '%s', bytesLen: '%s'", evalStr, offset, bytesLen );
+            console.log( "[__evalEnvToBytes] evalStr: '%s', offset: '%s', bytesLen: '%s'", evalStr, offset, bytesLen );
+
+            var parts = evalStr.split( "," );
+            
+            if ( parts.length == 2 )
+            {
+                eval( parts[1] + " = " + parts[0] );
+
+                evalStr = parts[0];
+            }
 
             var bytes = __strToBytes( eval( evalStr ) /* with @env */, bytesLen );
 

@@ -68,17 +68,23 @@ if ( trans_proto == "tcp" )
 
         tcp_clients[remoteAddress + ":" + remotePort] = tcp_client;
 
+        env.update(
+        {
+            "remote_ip" : remoteAddress,
+            "remote_port" : remotePort,
+        });
+
         var ind = 0;
-        
+
         tcp_client.on( "data", function( msg ) 
         {
             env.update(
             {
-                "iter_num" : ind
+                "iter_num" : ind++
             });
 
             console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]", 
-                msg.toString(), msg.length, remoteAddress, remotePort );
+                msg.toString( isHexMode ? "HEX" : "" ), msg.length, remoteAddress, remotePort );
 
             if ( recvComp ) // verify MSG and/or update ENV vars
             {
@@ -88,7 +94,7 @@ if ( trans_proto == "tcp" )
             }
 
 
-            //if ( send_buff != null )
+            //if ( sendComp != null )
             {
                 timer = setTimeout(function()
                 {
@@ -97,7 +103,7 @@ if ( trans_proto == "tcp" )
                     tcp_client.write( sendData, function()
                     {
                         console.log( "[tcp] sent>'%s' [%s bytes] [to %s:%s]", 
-                            sendData.toString( isHexMode ? "HEX" : ""  ), sendData.length, remoteAddress, remotePort );
+                            sendData.toString( isHexMode ? "HEX" : "" ), sendData.length, remoteAddress, remotePort );
 
                         //udp_client.close();
                     });
