@@ -50,11 +50,16 @@ var isHexMode = args.sendData.isHex;
 
 env.update(
 {
-    "proto" : trans_proto,
+    "proto"     : trans_proto,
     "remote_ip" : dst_ip,
     "remote_port" : dst_port,
     "is_client" : 1
 });
+
+var rtpTmpl = args["rtp"] ? mycmn.parseRTParg( args["rtp"] ) : null;
+
+
+//console.log( rtpTmpl ? mycmn.getRTPinfo( env, rtpTmpl ) : "no RTP info" );
 
 // send hex/txt
 //var sendData = mycmn.runBuf( sendComp, env, null /* no recv buffer */ );
@@ -75,127 +80,174 @@ var tcp_client = null;
 var udp_client = null;
 var timer = null;
 
-if ( trans_proto == "tcp" )
+
+var tcp_control = new net.Socket();
+tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function() 
 {
-    tcp_client = new net.Socket();
-
-    tcp_client.connect( dst_port, dst_ip, function() 
+    env.update(
     {
-        env.update(
-        {
-            "local_ip" : tcp_client.localAddress,
-            "local_port" : tcp_client.localPort,
-        });
+        "local_ip" : tcp_control.localAddress
+    });
 
-        console.log( "[tcp] connected [to %s:%s] [from %s:%s]", 
-            dst_ip, dst_port, tcp_client.localAddress, tcp_client.localPort );
 
-        //env.print();
+    if ( trans_proto == "tcp" )
+    {
+        tcp_client = new net.Socket();
 
-        var ind = 0;
-
-        var doTcpSend = function()
+        tcp_client.connect( dst_port, dst_ip, function() 
         {
             env.update(
             {
-                "iter_num" : ind
+                "local_port" : tcp_client.localPort,
             });
 
-            var sendData = mycmn.runBuf( sendComp, env );
+            console.log( "[tcp] connected [to %s:%s] [from %s:%s]", 
+                dst_ip, dst_port, tcp_client.localAddress, tcp_client.localPort );
 
-            env.print( "** Before send:" );
+            var ind = 0;
 
-            tcp_client.write( sendData, function()
+            var doTcpSend = function()
             {
-                console.log( "[tcp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s]", 
-                    sendData.toString( isHexMode ? "HEX" : "" ), ind + 1, sendData.length, dst_ip, dst_port );
+                if ( ind == send_repeat )
+                    return;
 
-                if ( ++ind < send_repeat )
+                env.update(
                 {
-                    timer = setTimeout( doTcpSend, send_delay_sec * 1000 );
-                }
-                // don't exit after send all. At least, to recv all data
-                // else
-                // {
-                //     tcp_client.close();
-                // }
-            });
-        }
+                    "iter_num" : ind
+                });
 
-        if ( sendComp )
-        {
-            doTcpSend();
-        }
-    });
+                var sendData = mycmn.runBuf( sendComp, env );
 
-    tcp_client.on( "data", function( msg )
-    {
-        console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]",
-            msg.toString( isHexMode ? "HEX" : "" ), msg.length, dst_ip, dst_port);
+                env.print( "** Before send:" );
 
-        if ( recvComp ) // verify MSG and/or update ENV vars
-        {
-           msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
-           
-           //console.log( msg.toString( isHexMode ? "HEX" : "" ) )
-           
-           env.print( "** After recv:" );
-        }
-    });
+                tcp_client.write( sendData, function()
+                {
+                    console.log( "[tcp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s]", 
+                        sendData.toString( isHexMode ? "HEX" : "" ), ind + 1, sendData.length, dst_ip, dst_port );
 
-    tcp_client.on( "close", function()
-    {
-        console.log( "[tcp] connection closed" );
-    });
-
-    tcp_client.on( "error", function()
-    {
-        console.log( "[tcp] connection error" );
-    });
-}
-else if ( trans_proto == "udp" )
-{
-    if ( send_buff == null )
-    {
-        console.error( "[udp] send data required, exit");
-        return;
-    }
-
-    udp_client = dgram.createSocket( "udp4" );
-    udp_client.on( "message", function( msg, from )
-    {
-        console.log( "[udp] recv>'%s' [%s bytes] [from %s:%s]", 
-            msg.toString(), msg.length, from.address, from.port );
-    });
-
-    var ind = 0;
-
-    var doUdpSend = function()
-    {
-        udp_client.send( send_buff, 0, send_buff.length, dst_port, dst_ip, function()
-        {
-            console.log( "[udp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s]", 
-                send_buff.toString(), ind + 1, send_buff.length, dst_ip, dst_port );
-
-            if ( ++ind < send_repeat )
-            {
-                timer = setTimeout( doUdpSend, send_delay_sec * 1000 );
+                    if ( ind++ < send_repeat )
+                    {
+                        timer = setTimeout( doTcpSend, send_delay_sec * 1000 );
+                    }
+                });
             }
-            // don't exit after send all. At least, to recv all data
-            // else
-            // {
-            //     udp_client.close();
-            // }
+
+            if ( sendComp )
+            {
+                doTcpSend();
+            }
+        });
+
+        tcp_client.on( "data", function( msg )
+        {
+            console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]",
+                msg.toString( isHexMode ? "HEX" : "" ), msg.length, dst_ip, dst_port);
+
+            if ( recvComp ) // verify MSG and/or update ENV vars
+            {
+               msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+               
+               env.print( "** After recv:" );
+
+               if ( rtpTmpl )
+               {
+                    var rtpInfo = mycmn.getRTPinfo( env, rtpTmpl );
+
+                    mycmn.emitRTP2( rtpInfo, send_delay_sec - 1 );
+               }
+            }
+        });
+
+        tcp_client.on( "close", function()
+        {
+            console.log( "[tcp] connection closed" );
+        });
+
+        tcp_client.on( "error", function()
+        {
+            console.log( "[tcp] connection error" );
         });
     }
+    else if ( trans_proto == "udp" )
+    {
+        if ( send_buff == null )
+        {
+            console.error( "[udp] send data required, exit");
+            return;
+        }
 
-    doUdpSend();
-}
-else
+        udp_client = dgram.createSocket( "udp4" );
+        
+        udp_client.on( "message", function( msg, from )
+        {
+            console.log( "[udp] recv>'%s' [%s bytes] [from %s:%s]", 
+                msg.toString( isHexMode ? "HEX" : "" ), msg.length, from.address, from.port );
+
+            if ( recvComp ) // verify MSG and/or update ENV vars
+            {
+                msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+
+                env.print( "** After recv:" );
+
+                if ( rtpTmpl )
+                {
+                    var rtpInfo = mycmn.getRTPinfo( env, rtpTmpl );
+
+                    mycmn.emitRTP2( rtpInfo, send_delay_sec - 1 );
+                }
+            }
+        });
+
+
+        udp_client.bind(function()
+        {
+            env.update(
+            {
+                "local_port" : udp_client.address().port,
+            });
+
+            var ind = 0;
+
+            var doUdpSend = function()
+            {
+                if ( ind == send_repeat )
+                    return;
+
+                env.update(
+                {
+                    "iter_num" : ind
+                });
+
+                var sendData = mycmn.runBuf( sendComp, env );
+
+                env.print( "** Before send:" );
+
+                udp_client.send( sendData, 0, sendData.length, dst_port, dst_ip, function()
+                {
+                    console.log( "[udp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s] [from %s:%s]", 
+                        sendData.toString( isHexMode ? "HEX" : "" ), ind + 1, sendData.length, dst_ip, dst_port, env.local_ip, env.local_port );
+
+                    if ( ind++ < send_repeat )
+                    {
+                        timer = setTimeout( doUdpSend, send_delay_sec * 1000 );
+                    }
+                });
+            }
+
+            doUdpSend();
+        })
+    }
+    else
+    {
+        console.error( "wrong proto '%s', must be TCP/UDP, exit", trans_proto );
+    }
+
+
+});
+
+tcp_control.on( "error", function() 
 {
-    console.error( "wrong proto '%s', must be TCP/UDP, exit", trans_proto );
-}
-
+});
 
 process.on('SIGINT', function() 
 {
@@ -203,6 +255,9 @@ process.on('SIGINT', function()
 
     if ( timer )
         clearTimeout( timer );
+
+    if ( tcp_control )
+        tcp_control.destroy();
 
     if ( tcp_client )
         tcp_client.destroy();

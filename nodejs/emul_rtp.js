@@ -28,4 +28,4 @@ var send_msg = ( argsCount >= 6 ) ? process.argv[argInd + 5] : null;
 
 console.log( send_msg );
 
-mycmn.emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg );
+mycmn.emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg, 2 );

@@ -43,13 +43,23 @@ var isHexMode = args.sendData.isHex;
 
 env.update(
 {
-    "proto" : trans_proto,
-    "local_ip" : listen_ip,
+    "proto"     : trans_proto,
+    "local_ip"  : listen_ip,
     "local_port" : listen_port,
     "is_client" : 0
 });
 
-// TODO: -v support
+var rtpTmpl = args["rtp"] ? mycmn.parseRTParg( args["rtp"] ) : null;
+
+
+
+var tcp_control = net.createServer( function( tcp_client )
+{
+    tcp_client.on( "error", function() 
+    {
+    });
+});
+tcp_control.listen( mycmn.CONTROL_PORT, listen_ip );
 
 
 var tcp_server = null;
@@ -89,17 +99,15 @@ if ( trans_proto == "tcp" )
 
             if ( recvComp ) // verify MSG and/or update ENV vars
             {
-               msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
-               
-               //console.log( msg.toString( isHexMode ? "HEX" : "" ) )
-               
-               env.print( "** After recv:" );
+                msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+
+                env.print( "** After recv:" );
             }
 
 
             //if ( sendComp != null )
             {
-                timer = setTimeout(function()
+                //timer = setTimeout(function()
                 {
                     var sendData = mycmn.runBuf( sendComp, env );
 
@@ -110,10 +118,15 @@ if ( trans_proto == "tcp" )
                         console.log( "[tcp] sent>'%s' [%s bytes] [to %s:%s]", 
                             sendData.toString( isHexMode ? "HEX" : "" ), sendData.length, remoteAddress, remotePort );
 
-                        //udp_client.close();
+                        if ( rtpTmpl )
+                        {
+                            var rtpInfo = mycmn.getRTPinfo( env, rtpTmpl );
+
+                            mycmn.emitRTP2( rtpInfo, send_delay_sec - 1 );
+                        }
                     });
 
-                }, send_delay_sec * 1000 );
+                }//, send_delay_sec * 1000 );
             }            
         });
         
@@ -129,6 +142,8 @@ if ( trans_proto == "tcp" )
 }
 else if ( trans_proto == "udp" )
 {
+    var ind = 0;
+
     udp_server = dgram.createSocket( "udp4" )
 
     udp_server.on( "listening", function()
@@ -138,28 +153,55 @@ else if ( trans_proto == "udp" )
 
     udp_server.on( "message", function( msg, from )
     {
-        console.log( "[udp] recv>'%s' [%s bytes] [from %s:%s]", 
-            msg.toString(), msg.length, from.address, from.port );
-
-        //udp_client = dgram.createSocket( "udp4" );
-
-        if ( send_buff != null )
+        env.update(
         {
-            timer = setTimeout(function()
-            {
-                udp_server.send( send_buff, 0, send_buff.length, from.port, from.address, function()
-                {
-                    console.log( "[udp] sent>'%s' [%s bytes] [to %s:%s]", 
-                        send_buff.toString(), send_buff.length, from.address, from.port );
+            "remote_ip"   : from.address,
+            "remote_port" : from.port
+        });
 
-                    //udp_client.close();
+        console.log( "[udp] recv>'%s' [%s bytes] [from %s:%s]", 
+            msg.toString( isHexMode ? "HEX" : "" ), msg.length, from.address, from.port );
+
+        if ( recvComp ) // verify MSG and/or update ENV vars
+        {
+            msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+
+            env.print( "** After recv:" );
+        }
+
+        //if ( send_buff != null )
+        {
+            //timer = setTimeout(function()
+            {
+                env.update(
+                {
+                    "iter_num" : ind++
                 });
 
-            }, send_delay_sec * 1000 );
+                var sendData = mycmn.runBuf( sendComp, env );
+
+                env.print( "** Before send:" );
+
+                udp_server.send( sendData, 0, sendData.length, from.port, from.address, function()
+                {
+                    console.log( "[udp] sent>'%s' [%s bytes] [to %s:%s]", 
+                        sendData.toString( isHexMode ? "HEX" : "" ), sendData.length, from.address, from.port );
+
+                    if ( rtpTmpl )
+                    {
+                        var rtpInfo = mycmn.getRTPinfo( env, rtpTmpl );
+
+                        mycmn.emitRTP2( rtpInfo, send_delay_sec - 1 );
+                    }
+                });
+
+            }//, send_delay_sec * 1000 );
         }
     })
 
-    udp_server.bind( listen_port, listen_ip );
+    udp_server.bind( listen_port, listen_ip, function()
+    {
+    });
 }
 else
 {
@@ -180,6 +222,9 @@ process.on('SIGINT', function()
 
     if ( timer )
         clearTimeout( timer );
+
+    if ( tcp_control )
+        tcp_control.close();
 
     if ( tcp_server )
         tcp_server.close();

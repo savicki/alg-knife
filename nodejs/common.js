@@ -1,8 +1,10 @@
 
+const net   = require( "net" );
+const dgram = require( "dgram" );
 const fs    = require( "fs" );
 const path  = require('path');
 
-var __noVerbose = false;
+var __noVerbose = !false;
 
 
 function __strToBytes( str, retLen )
@@ -509,12 +511,34 @@ function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes!
     return dataBuf;
 }
 
+function emitRTP2( rtpInfo, interval )
+{
+    return emitRTP( 
+        rtpInfo["proto"], 
+        rtpInfo["local_ip"],
+        rtpInfo["local_port"], 
+        rtpInfo["remote_ip"], 
+        rtpInfo["remote_port"], 
+        rtpInfo["msg"], 
+        interval 
+    );
+}
+
 // CLIENT: invoked after receiving response (and parsing it) from vs.
 // SERVER: invoked after sending response (and parsing it) from vs.
 // stopped after delay interval (before next iteration)
 // if @send_msg 'null', it's server
-function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg )
+function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg, interval )
 {
+    console.log( "[RTP] run for %s sec, act: %s, [%s] %s:%s %s %s:%s", 
+        interval, send_msg != null,  
+        trans_proto, local_ip, local_port, ( send_msg != null ? "-->" : "<--" ), dst_ip, dst_port
+    );
+
+    interval *= 1000;
+
+    var sendPkt = 0, recvPkt = 0;
+
     if ( trans_proto == "tcp" )
     {
         if ( send_msg == null )
@@ -525,39 +549,49 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg 
                 var remoteAddress = tcp_client.remoteAddress;
                 var remotePort = tcp_client.remotePort;
 
-                console.log( "[tcp] connected [from %s:%s]", remoteAddress, remotePort );
+                console.log( "[RTP-tcp] connected [from %s:%s]", remoteAddress, remotePort );
 
                 if ( remoteAddress != dst_ip || remotePort != dst_port )
                 {
-                    console.error( "[tcp] reject connection [from %s:%s], expected from %s:%s", 
+                    console.error( "[RTP-tcp] reject RTP connection [from %s:%s], expected from %s:%s", 
                         remoteAddress, remotePort, dst_ip, dst_port )
 
                     tcp_client.destroy();
                 }
                 else
                 {
+                    setTimeout(function()
+                    {
+                        tcp_client.destroy();
+                        //console.log( "[RTP-tcp] send: %s pkts, recv: %s pkts", sendPkt, recvPkt );
+                    }, interval);
+
                     tcp_client.on( "data", function( msg ) 
                     {
-                        console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]", 
-                            msg.toString(), msg.length, remoteAddress, remotePort );
+                        recvPkt++;
+
+                        //console.log( "[RTP-tcp] recv>'%s' [%s bytes] [from %s:%s]",
+                        //   msg.toString(), msg.length, remoteAddress, remotePort );
 
                         var reply_msg = msg.toString().split( "" ).reverse().join( "" );
 
                         tcp_client.write( reply_msg, function()
                         {
-                            console.log( "[tcp] sent>'%s' [%s bytes] [to %s:%s]", 
+                            sendPkt++;
+
+                            console.log( "[RTP-tcp] sent>'%s' [%s bytes] [to %s:%s]", 
                                 reply_msg.toString(), reply_msg.length, remoteAddress, remotePort );
                         });           
                     });
                     
                     tcp_client.on( "close", function() 
                     {
-                        console.log( "[tcp] disconnected [from %s:%s]", remoteAddress, remotePort );
+                        console.log( "[RTP-tcp] disconnected [from %s:%s]", remoteAddress, remotePort );
                     });
 
                     tcp_client.on( "error", function()
                     {
-                        console.log( "[tcp] connection error" );
+                        console.log( "[RTP-tcp] connection error" );
                     });
                 }
             });
@@ -566,7 +600,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg 
         }
         else
         {
-            tcp_client = new net.Socket();
+            var tcp_client = new net.Socket();
 
             var connectOpts = 
             {
@@ -579,39 +613,47 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg 
 
             tcp_client.connect( connectOpts, function() 
             {
-                console.log( "[tcp] connected [to %s:%s]", dst_ip, dst_port );
+                console.log( "[RTP-tcp] connected [to %s:%s]", dst_ip, dst_port );
+
+                setTimeout(function()
+                {
+                    tcp_client.destroy();
+                    //console.log( "[RTP-tcp] send: %s pkts, recv: %s pkts", sendPkt, recvPkt );
+                }, interval);
             });
 
             tcp_client.on( "data", function( msg )
             {
-                console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]",
+                recvPkt++;
+
+                console.log( "[RTP-tcp] recv>'%s' [%s bytes] [from %s:%s]",
                     msg.toString(), msg.length, dst_ip, dst_port);
 
                 var reply_msg = msg.toString().split( "" ).reverse().join( "" );
 
                 tcp_client.write( reply_msg, function()
                 {
-                    console.log( "[tcp] sent>'%s' [%s bytes] [to %s:%s]", 
-                        reply_msg.toString(), reply_msg.length, dst_ip, dst_port );
+                    sendPkt++;
 
-                    //udp_client.close();
+                    //console.log( "[RTP-tcp] sent>'%s' [%s bytes] [to %s:%s]", 
+                    //    reply_msg.toString(), reply_msg.length, dst_ip, dst_port );
                 }); 
             });
 
             tcp_client.on( "close", function()
             {
-                console.log( "[tcp] connection closed" );
+                console.log( "[RTP-tcp] connection closed" );
             });
 
             tcp_client.on( "error", function()
             {
-                console.log( "[tcp] connection error" );
+                console.log( "[RTP-tcp] connection error" );
             });
 
             // do initial send
             tcp_client.write( send_msg, function()
             {
-                console.log( "[tcp] sent>'%s' [%s bytes] [to %s:%s]", 
+                console.log( "[RTP-tcp] sent>'%s' [%s bytes] [to %s:%s]", 
                     send_msg.toString(), send_msg.length, dst_ip, dst_port );
             });
         }
@@ -619,26 +661,71 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg 
     else if ( trans_proto == "udp" )
     {
         var local = dgram.createSocket('udp4');
+        var remoteSocks = {};
 
-        local.on( "[udp] listening", function() 
+        local.on( "[RTP-udp] listening", function() 
         {
             var address = local.address();
 
-            console.log( "[udp] listening on %s:%s", address.address, address.port );
+            console.log( "[RTP-udp] listening on %s:%s", address.address, address.port );
         });
 
         local.on( "message", function( msg, remote ) 
         {
-            console.log( "[udp] recv>'%s' [%s bytes] [from %s:%s]", 
-                msg.toString(), msg.length, remote.address, remote.port );
+            var key     = remote.address + ":" + remote.port;
+            var value   = remoteSocks[key];
 
-            var reply_msg = msg.toString().split( "" ).reverse().join( "" );
-
-            local.send( reply_msg, 0, reply_msg.length, remote.port, remote.address, function()
+            if ( value === undefined )
             {
-                console.log( "[udp] send>'%s' [%s bytes] [to %s:%s]", 
-                    reply_msg.toString(), reply_msg.length, remote.address, remote.port );
-            });
+                remoteSocks[key] = 
+                {
+                    "state" : "EST",
+                    "in" : 0,
+                    "out" : 0
+                }
+
+                value = remoteSocks[key];
+
+                setTimeout(function()
+                {
+                    remoteSocks[key]["state"] = "CLO";
+                    
+                    console.log( "[RTP-udp] send: %s pkts, recv: %s pkts", remoteSocks[key]["out"], remoteSocks[key]["in"] );
+                    
+                    __noVerbose || console.log( "[RTP-udp] CLO remoteSocks[key]" );
+
+                    setTimeout(function()
+                    {
+                        delete remoteSocks[key];
+                        
+                        __noVerbose || console.log( "[RTP-udp] delete remoteSocks[key]" );
+
+                    }, 2000 );
+
+                }, interval);
+            }
+
+            //console.log( "[RTP-udp] recv>'%s' [%s bytes] [from %s:%s]", 
+            //    msg.toString(), msg.length, remote.address, remote.port );
+
+            if ( value["state"] == "EST" )
+            {
+                recvPkt++;
+
+                value["in"] = recvPkt;
+
+                var reply_msg = msg.toString().split( "" ).reverse().join( "" );
+
+                local.send( reply_msg, 0, reply_msg.length, remote.port, remote.address, function()
+                {
+                    sendPkt++;
+
+                    value["out"] = recvPkt;
+
+                    //console.log( "[RTP-udp] send>'%s' [%s bytes] [to %s:%s]", 
+                    //    reply_msg.toString(), reply_msg.length, remote.address, remote.port );
+                });
+            }
         });
 
         local.bind( local_port, local_ip );
@@ -648,7 +735,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg 
             // do initial send
             local.send( send_msg, 0, send_msg.length, dst_port, dst_ip );
 
-            console.log( "[udp] send>'%s' [%s bytes] [to %s:%s]", 
+            console.log( "[RTP-udp] send>'%s' [%s bytes] [to %s:%s]", 
                 send_msg.toString(), send_msg.length, dst_ip, dst_port );
         }
     }
@@ -807,13 +894,65 @@ function setVerbose( on )
     __noVerbose = !on;
 }
 
+// "{{rtp_proto}} {{local_ip}} {{iter_num+1024}} {{rtp_remote_ip}} {{rtp_remote_port}} emit_data"
+function parseRTParg( rtpArg )
+{
+    rtpArg = rtpArg.replace( /{{([^}]+)}}/g, function( match, p1 )
+    {
+        return "env." + p1;
+    });
+
+    return rtpArg;
+}
+
+function getRTPinfo( env, rtpTmpl )
+{
+    __noVerbose || console.log( '%s', rtpTmpl );
+
+    var info = null;
+
+    var rtpVal = rtpTmpl.replace( /env\.[^ ]+/g, function( p )
+    {
+        var rtpValItem = eval( p );
+
+        //console.log( rtpValItem );
+        return rtpValItem;
+    });
+
+    var match = rtpVal.match( /([a-zA-Z]{3})\s+(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})\s+(\d{4,5})\s+(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})\s+(\d{4,5})\s*([\w\W]+)?$/ );
+
+    if ( match )
+    {
+        info =
+        {
+            "proto":        match[1],
+            "local_ip" :    match[2],
+            "local_port" :  parseInt( match[3] ),
+            "remote_ip" :   match[4],
+            "remote_port" : parseInt( match[5] ),
+            "msg" : match[6] ? match[6] : null
+        };
+    }
+
+    __noVerbose || console.log(info)
+
+    return info;
+}
+
 //module.exports.getSendDataInfo  = getSendDataInfo;
 
 module.exports.compileBuf       = compileBuf;
 module.exports.runBuf           = runBuf;
 
 module.exports.emitRTP          = emitRTP;
+module.exports.emitRTP2         = emitRTP2;
+
 module.exports.parseArgs        = parseArgs;
 module.exports.getEnv           = getEnv;
 module.exports.compileBufs      = compileBufs;
 module.exports.setVerbose       = setVerbose;
+
+module.exports.parseRTParg      = parseRTParg;
+module.exports.getRTPinfo       = getRTPinfo;
+
+module.exports.CONTROL_PORT     = 6001;

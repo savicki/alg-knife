@@ -151,3 +151,30 @@ applyReadMap(map, msg, envVars)	// fetch fields into env vars
 Cons:
 - hex parser can't handle size-variable responses (SMT, ORCA)
 - DNS support?
+
+
+[ samples ]
+
+node nodejs/server.js  udp 127.0.0.1 9001 "\x0000000000000000" "wmap: ./samples/sccp/sccp_smt.wmap" "rmap: ./samples/sccp/sccp_smt.rmap"
+node nodejs/client.js  udp 127.0.0.1 9001 "\x0000000000000000" "wmap: ./samples/sccp/sccp_smt.wmap" "rmap: ./samples/sccp/sccp_smt.rmap" "rep: 1" "delay: 3"
+
+node nodejs/server.js  udp 127.0.0.1 9001 "server: {{local_port}}"
+node nodejs/client.js  udp 127.0.0.1 9001 "client: {{local_port}}"
+
+node nodejs/emul_rtp.js udp 127.0.0.1 9001 127.0.0.1 9000
+node nodejs/emul_rtp.js udp 127.0.0.1 9000 127.0.0.1 9001 "xx"
+
+node nodejs/client.js udp 127.0.0.1 9001 "\x0000000000000000" "wmap: ./samples/sccp/sccp_smt.wmap" "rep: 1" "delay: 3" "rmap: ./samples/sccp/sccp_smt.rmap"  "rtp: {{proto}} 127.0.0.1 9001 {{remote_ip}} {{remote_port}} 123"
+
+
+
+
+node nodejs/server.js udp 127.0.0.1 9001 "\x0000000000000000" "rmap: ./samples/sccp/sccp_smt.rmap" "wmap: ./samples/sccp/sccp_smt.wmap" "delay: 3" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} "
+
+node nodejs/client.js udp 127.0.0.1 9001 "\x0000000000000000" "wmap: ./samples/sccp/sccp_smt.wmap" "rep: 10" "delay: 3" "rmap: ./samples/sccp/sccp_smt.rmap"  "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} 123"
+
+
+
+node nodejs/server.js tcp 127.0.0.1 9001 "\x0000000000000000" "rmap: ./samples/sccp/sccp_smt.rmap" "wmap: ./samples/sccp/sccp_smt.wmap" "delay: 3" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} "
+
+node nodejs/client.js tcp 127.0.0.1 9001 "\x0000000000000000" "wmap: ./samples/sccp/sccp_smt.wmap" "rep: 10" "delay: 3" "rmap: ./samples/sccp/sccp_smt.rmap"  "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} 123"
