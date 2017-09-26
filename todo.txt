@@ -3,8 +3,8 @@
 - support SIPP xml scenarios
 - support dialog?
 - send schemas, e.g. {10,24,12,40} for 10+24+12+40 byte-long msg, so ring buffers can be pin-tested. As well as stream helpers.
-- v support
-- support placeholders in text messages, e.g. {listen_ip}:{listen_port}, {iter_num}
++ v support
++ support placeholders in text messages, e.g. {listen_ip}:{listen_port}, {iter_num}
 
 {{proto}}
 {{local_ip}}, {{local_port}}

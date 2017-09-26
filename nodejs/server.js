@@ -31,7 +31,7 @@ var send_repeat     = args["rep"] || 1;
 var send_delay_sec  = args["delay"] || 0;
 
 
-
+mycmn.setVerbose( args["v"] != undefined );
 var env = mycmn.getEnv();
 
 var cInfo = mycmn.compileBufs( args );
@@ -46,6 +46,7 @@ env.update(
     "proto" : trans_proto,
     "local_ip" : listen_ip,
     "local_port" : listen_port,
+    "is_client" : 0
 });
 
 // TODO: -v support
@@ -89,8 +90,10 @@ if ( trans_proto == "tcp" )
             if ( recvComp ) // verify MSG and/or update ENV vars
             {
                msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
-               console.log( msg.toString( isHexMode ? "HEX" : "" ) )
-               env.print();
+               
+               //console.log( msg.toString( isHexMode ? "HEX" : "" ) )
+               
+               env.print( "** After recv:" );
             }
 
 
@@ -99,6 +102,8 @@ if ( trans_proto == "tcp" )
                 timer = setTimeout(function()
                 {
                     var sendData = mycmn.runBuf( sendComp, env );
+
+                    env.print( "** Before send:" );
 
                     tcp_client.write( sendData, function()
                     {

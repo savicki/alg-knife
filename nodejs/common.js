@@ -2,6 +2,7 @@
 const fs    = require( "fs" );
 const path  = require('path');
 
+var __noVerbose = false;
 
 
 function __strToBytes( str, retLen )
@@ -10,7 +11,7 @@ function __strToBytes( str, retLen )
     var buffer = new Buffer( retLen );
     var match;
 
-    console.log( "[__strToBytes] str = '%s', retLen = '%s'", str, retLen );
+    __noVerbose || console.log( "[__strToBytes] str = '%s', retLen = '%s'", str, retLen );
 
     // TODO: support fixed @retLen values
     if ( typeof(str) == 'number' )
@@ -30,7 +31,7 @@ function __strToBytes( str, retLen )
         }
     }
 
-    console.log( "[__strToBytes] buffer : ", buffer );
+    __noVerbose || console.log( "[__strToBytes] buffer : ", buffer );
 
     return buffer;
 }
@@ -39,7 +40,7 @@ function __bytesToStr( bytes, fieldName )
 {
     var str = "";
 
-    console.log( "[__bytesToStr] fieldName = '%s', buffer: ", fieldName, bytes );
+    __noVerbose || console.log( "[__bytesToStr] fieldName = '%s', buffer: ", fieldName, bytes );
 
     if ( /_ip/.test( fieldName ) && bytes.length == 4 )
     {
@@ -51,7 +52,7 @@ function __bytesToStr( bytes, fieldName )
         str = bytes.readUInt32BE( 0 ).toString();
     }
 
-    console.log( "[__bytesToStr] str = '%s'", str );
+    __noVerbose || console.log( "[__bytesToStr] str = '%s'", str );
 
     return str;
 }
@@ -69,7 +70,7 @@ function __newFuncInfo( func, immutableArgs )
 
 function __runFunc( env, funcInfo, funcArgs )
 {
-    console.log( "[__runFunc] : ", funcInfo );
+    __noVerbose || console.log( "[__runFunc] : ", funcInfo );
 
     return funcInfo.func( env, funcInfo.args, funcArgs );
 }
@@ -82,7 +83,7 @@ function __evalStrToEnv( env, fieldName, strValue )
 
         evalStr = "realValue = " + fieldName;
 
-        console.log( evalStr );
+        __noVerbose || console.log( evalStr );
         eval( evalStr );
 
         if ( realValue != strValue )
@@ -95,7 +96,7 @@ function __evalStrToEnv( env, fieldName, strValue )
     {
         var evalStr = fieldName + " = " + "\"" + strValue + "\""
 
-        console.log( evalStr );
+        __noVerbose || console.log( evalStr );
         eval( evalStr );
     }
 }
@@ -134,7 +135,7 @@ function __getSendDataInfo( cwd, send_data )
         var filename = send_data.substr( filePrefixLen ).trim();
 
         filename = path.join( path.dirname( cwd ), filename );
-        console.log( filename );
+        __noVerbose || console.log( filename );
 
         if ( fs.existsSync( filename ) )
         {
@@ -151,7 +152,7 @@ function __getSendDataInfo( cwd, send_data )
         var filename = send_data.substr( fileHexPrefixLen ).trim();
 
         filename = path.join( path.dirname( cwd ), filename );
-        console.log( filename );
+        __noVerbose || console.log( filename );
         
         if ( fs.existsSync( filename ) )
         {
@@ -168,8 +169,8 @@ function __getSendDataInfo( cwd, send_data )
         send_buff = new Buffer( send_data );
     }
 
-    console.log( "send_buff (hex): '%s'", send_buff.toString( "hex" ) );
-    console.log( "send_buff (str): '%s'", send_buff.toString( ) );
+    __noVerbose || console.log( "send_buff (hex): '%s'", send_buff.toString( "hex" ) );
+    __noVerbose || console.log( "send_buff (str): '%s'", send_buff.toString( ) );
     
 
     var res = 
@@ -210,7 +211,7 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
             offset      = fArgs["offset"];
             recvBuf     = fArgs["rawBytes"];
 
-            console.log( "[__evalEnvFromBytes] fieldName: '%s', offset: '%s', bytesLen: '%s'", fieldName, offset, bytesLen );
+            __noVerbose || console.log( "[__evalEnvFromBytes] fieldName: '%s', offset: '%s', bytesLen: '%s'", fieldName, offset, bytesLen );
             
             if ( offset + bytesLen <= recvBuf.length )
             {
@@ -236,10 +237,10 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
             offset      = fArgs["offset"];
             sendBytes   = fArgs["rawBytes"];
 
-            console.log( "[__evalEnvToBytes] evalStr: '%s', offset: '%s', bytesLen: '%s'", evalStr, offset, bytesLen );
+            __noVerbose || console.log( "[__evalEnvToBytes] evalStr: '%s', offset: '%s', bytesLen: '%s'", evalStr, offset, bytesLen );
 
             var parts = evalStr.split( "," );
-            
+
             if ( parts.length == 2 )
             {
                 eval( parts[1] + " = " + parts[0] );
@@ -323,7 +324,7 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
                 var evalStr = immutableArgs;
                 var strValue = args["rawStr"];
 
-                console.log( "[__evalEnvFromStr] evalStr = '%s'", evalStr );
+                __noVerbose || console.log( "[__evalEnvFromStr] evalStr = '%s'", evalStr );
 
                 __evalStrToEnv( env, evalStr, strValue ); 
             }
@@ -332,7 +333,7 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
 
             sendBufStr = sendBufStr.replace( /{{([^}]+)}}(?:{{([^}]+)}})?/g, function( match, p1, p2 )
             {
-                console.log( p1, p2 )
+                __noVerbose || console.log( p1, p2 )
 
                 if ( p2 )
                 {
@@ -367,7 +368,7 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
             {
                 var evalStr = immutableArgs;
 
-                console.log( "[__evalToStr] evalStr = '%s'", evalStr );
+                __noVerbose || console.log( "[__evalToStr] evalStr = '%s'", evalStr );
 
                 return eval( evalStr );
             }
@@ -411,7 +412,7 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
     compiledBuf["useNative"] = ( Object.keys( compiledBuf["fmap"] ) == 0 );
 
     // dump compiled info
-    console.log( "[compileBuf] ", compiledBuf );
+    __noVerbose || console.log( "[compileBuf] ", compiledBuf );
 
     return compiledBuf;
 }
@@ -424,7 +425,7 @@ function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes!
     // unprocessed by "interpreter" data
     var dataBuf = ( isReceival ) ? recvBuf : compiledInfo.compiled; 
 
-    console.log( "[runBuf] dataBuf IN: '%s'", dataBuf.toString( isHex ? "hex" : "" ) );
+    __noVerbose || console.log( "[runBuf] dataBuf IN: '%s'", dataBuf.toString( isHex ? "hex" : "" ) );
 
     if ( compiledInfo.useNative )
     {
@@ -464,7 +465,7 @@ function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes!
             {
                 var dataBufStr = dataBuf.toString();
 
-                //console.log( compiledInfo.compiled )
+                //__noVerbose || console.log( compiledInfo.compiled )
 
                 var match = dataBufStr.match( "^" + compiledInfo.compiled + "$" );
 
@@ -474,7 +475,7 @@ function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes!
                 {
                     var matchIndex = parseInt( matchIndexes[i] );
 
-                    console.log( "**** " + match[matchIndex + 1] )
+                    __noVerbose || console.log( "**** " + match[matchIndex + 1] )
 
                     funcInfo = compiledInfo["fmap"][matchIndex];
                     funcArgs = compiledInfo["fargs"][matchIndex];
@@ -502,7 +503,7 @@ function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes!
             }
         }
 
-        console.log( "[runBuf] dataBuf OUT: '%s'", dataBuf.toString( isHex ? "hex" : "" ) );
+        __noVerbose || console.log( "[runBuf] dataBuf OUT: '%s'", dataBuf.toString( isHex ? "hex" : "" ) );
     }
 
     return dataBuf;
@@ -680,13 +681,13 @@ function parseArgs( argv, helpFn )
         "sendData"  : sendDataInfo
     };
 
-    var optArgs = [ "rep", "delay", "wmap", "rmap", "rtp" ];
+    var optArgs = [ "rep", "delay", "wmap", "rmap", "rtp", "v" ];
 
     for ( var ind = argInd + 4; ind < argv.length; ind++ )
     {
         var argNameValue = argv[ind];
 
-        console.log( argNameValue )
+        //console.log( argNameValue )
 
         for ( var j = 0; j < optArgs.length; j++ )
         {
@@ -730,8 +731,11 @@ function getEnv()
             }
         },
 
-        print : function()
+        print : function( prefix )
         {
+            if ( prefix )
+                console.log( "'%s'" + ":", prefix );
+
             var keys = Object.keys( this );
 
             for( var i = 0; i < keys.length; i++ )
@@ -746,7 +750,7 @@ function getEnv()
         // env.assert( env.remote_ip )
         assert : function( fieldValue ) 
         {
-            console.log( "[assert] : fieldValue = %s", fieldValue );
+            __noVerbose || console.log( "[assert] : fieldValue = %s", fieldValue );
 
             return fieldValue;
         }        
@@ -796,6 +800,13 @@ function compileBufs( args )
     return res;
 }
 
+function setVerbose( on )
+{
+    console.log( "[setVerbose] on : %s", on );
+
+    __noVerbose = !on;
+}
+
 //module.exports.getSendDataInfo  = getSendDataInfo;
 
 module.exports.compileBuf       = compileBuf;
@@ -805,3 +816,4 @@ module.exports.emitRTP          = emitRTP;
 module.exports.parseArgs        = parseArgs;
 module.exports.getEnv           = getEnv;
 module.exports.compileBufs      = compileBufs;
+module.exports.setVerbose       = setVerbose;

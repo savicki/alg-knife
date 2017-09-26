@@ -38,7 +38,7 @@ var send_repeat      = args["rep"] || 1;
 var send_delay_sec   = args["delay"] || 0;
 
 
-
+mycmn.setVerbose( args["v"] != undefined );
 var env = mycmn.getEnv();
 
 var cInfo = mycmn.compileBufs( args );
@@ -53,6 +53,7 @@ env.update(
     "proto" : trans_proto,
     "remote_ip" : dst_ip,
     "remote_port" : dst_port,
+    "is_client" : 1
 });
 
 // send hex/txt
@@ -102,8 +103,8 @@ if ( trans_proto == "tcp" )
 
             var sendData = mycmn.runBuf( sendComp, env );
 
-            env.print();
-            
+            env.print( "** Before send:" );
+
             tcp_client.write( sendData, function()
             {
                 console.log( "[tcp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s]", 
@@ -130,7 +131,16 @@ if ( trans_proto == "tcp" )
     tcp_client.on( "data", function( msg )
     {
         console.log( "[tcp] recv>'%s' [%s bytes] [from %s:%s]",
-            msg.toString(), msg.length, dst_ip, dst_port);
+            msg.toString( isHexMode ? "HEX" : "" ), msg.length, dst_ip, dst_port);
+
+        if ( recvComp ) // verify MSG and/or update ENV vars
+        {
+           msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+           
+           //console.log( msg.toString( isHexMode ? "HEX" : "" ) )
+           
+           env.print( "** After recv:" );
+        }
     });
 
     tcp_client.on( "close", function()
