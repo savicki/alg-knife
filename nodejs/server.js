@@ -57,10 +57,14 @@ var tcp_control = net.createServer( function( tcp_client )
 {
     tcp_client.on( "error", function() 
     {
-        console.error( "*** tcp_control.error" );
+        console.error( "*** [tcp_control] tcp_client error" );
     });
 });
 tcp_control.listen( mycmn.CONTROL_PORT, listen_ip );
+tcp_control.on( "error", function()
+{
+    console.error( "*** [tcp_control] tcp_control error" );
+});
 
 
 var tcp_server = null;
@@ -140,6 +144,11 @@ if ( trans_proto == "tcp" )
 
                 }//, send_delay_sec * 1000 );
             }            
+        });
+
+        tcp_client.on( "error", function() 
+        {
+            console.error( "*** [tcp] error [from %s:%s]", remoteAddress, remotePort );
         });
         
         tcp_client.on( "close", function() 
