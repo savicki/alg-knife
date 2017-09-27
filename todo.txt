@@ -7,8 +7,11 @@
 + support placeholders in text messages, e.g. {listen_ip}:{listen_port}, {iter_num}
 - assert for SIP: "Content-length: xxx"
 - can't exit after RTP flows (open sockets??)
-- issue several "opening" RTP packets
-- TCP: (on client) no recv from server, even loopback
+- send several "opening" RTP packets
+- TCP: (on client) no recv from server, even loopback. But wireshark show incoming msg (when vs not loopback)!
+- RTP socket - eaddrinuse
+
+
 
 {{proto}}
 {{local_ip}}, {{local_port}}
