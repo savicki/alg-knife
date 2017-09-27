@@ -79,7 +79,7 @@ function __runFunc( env, funcInfo, funcArgs )
 
 function __evalStrToEnv( env, fieldName, strValue )
 {
-    if ( fieldName.startsWith( "env.assert" ) )
+    if ( fieldName.indexOf( "env.assert" ) == 0 )
     {
         var realValue;
 
@@ -93,7 +93,7 @@ function __evalStrToEnv( env, fieldName, strValue )
             console.error( "*** assert failed: real '%s' != recv '%s'", 
                 realValue, strValue );
         }
-    }
+    }    
     else
     {
         var evalStr = fieldName + " = " + "\"" + strValue + "\""
@@ -145,7 +145,7 @@ function __getSendDataInfo( cwd, send_data )
         }
         else
         {
-            console.error( "file '%s' not found, exit.", filename );
+            console.error( "*** file '%s' not found, exit.", filename );
             return null;
         }
     }
@@ -162,8 +162,8 @@ function __getSendDataInfo( cwd, send_data )
         }
         else
         {
-            console.error( "file '%s' not found, exit.", filename );
-            return;
+            console.error( "*** file '%s' not found, exit.", filename );
+            return null;
         }
     }
     else
@@ -288,7 +288,7 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
             }
             else
             {
-                var evalStr = tmplVar.replace( /([a-zA-Z_]+)/g, "env.$1" );
+                var evalStr = tmplVar.replace( /([a-zA-Z_\.]+)/g, "env.$1" );
 
                 funcInfo = __newFuncInfo( isReceival ? __evalEnvFromBytes : __evalEnvToBytes, evalStr );
 
@@ -350,7 +350,7 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
                         fmap[tmplVar] = funcInfo;
 
 
-                        var evalStr = p2.replace( /([a-zA-Z_]+)/g, "env.$1" );
+                        var evalStr = p2.replace( /([a-zA-Z_\.]+)/g, "env.$1" );
 
                         funcInfo = __newFuncInfo( __evalEnvFromStr, evalStr );
                     }
@@ -372,6 +372,15 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
 
                 __noVerbose || console.log( "[__evalToStr] evalStr = '%s'", evalStr );
 
+                var parts = evalStr.split( "," );
+
+                if ( parts.length == 2 )
+                {
+                    eval( parts[1] + " = " + parts[0] );
+
+                    evalStr = parts[0];
+                }
+
                 return eval( evalStr );
             }
 
@@ -388,7 +397,7 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
                 {
                     funcName = "func_" + funcInd++;
 
-                    var evalStr = tmplVar.replace( /([a-zA-Z_]+)/g, "env.$1" );
+                    var evalStr = tmplVar.replace( /([a-zA-Z_\.]+)/g, "env.$1" );
 
                     funcInfo = __newFuncInfo( __evalEnvToStr, evalStr );
 
@@ -427,7 +436,7 @@ function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes!
     // unprocessed by "interpreter" data
     var dataBuf = ( isReceival ) ? recvBuf : compiledInfo.compiled; 
 
-    __noVerbose || console.log( "[runBuf] dataBuf IN: '%s'", dataBuf.toString( isHex ? "hex" : "" ) );
+    __noVerbose || console.log( "[runBuf] isReceival: %s, dataBuf IN: '%s'", isReceival, dataBuf.toString( isHex ? "hex" : "" ) );
 
     if ( compiledInfo.useNative )
     {
@@ -471,47 +480,80 @@ function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes!
 
                 var match = dataBufStr.match( "^" + compiledInfo.compiled + "$" );
 
-                var matchIndexes = Object.keys( compiledInfo["fmap"] );
-
-                for( var i = 0, len = matchIndexes.length; i < len; i++ )
+                if ( match )
                 {
-                    var matchIndex = parseInt( matchIndexes[i] );
+                    var matchIndexes = Object.keys( compiledInfo["fmap"] );
 
-                    __noVerbose || console.log( "**** " + match[matchIndex + 1] )
+                    for( var i = 0, len = matchIndexes.length; i < len; i++ )
+                    {
+                        var matchIndex = parseInt( matchIndexes[i] );
 
-                    funcInfo = compiledInfo["fmap"][matchIndex];
-                    funcArgs = compiledInfo["fargs"][matchIndex];
+                        __noVerbose || console.log( "**** " + match[matchIndex + 1] )
 
-                    funcArgs["rawStr"] = match[matchIndex + 1];
+                        funcInfo = compiledInfo["fmap"][matchIndex];
+                        funcArgs = compiledInfo["fargs"][matchIndex];
 
-                    __runFunc( env, funcInfo, funcArgs );
+                        funcArgs["rawStr"] = match[matchIndex + 1];
+
+                        __runFunc( env, funcInfo, funcArgs );
+                    }
+                }
+                else
+                {
+                    console.error( "*** received message don't match pattern!" );
+
+                    return null;
                 }
             }
             else
             {
-                dataBuf = dataBuf.replace( /{{([^}]+)}}/g, function( match, p1 )
+                var doSecondRound = false;
+
+                // make 2 iterations, 2nd - for correct "Content-Length: " tmpl placement
+                for( var round = 0; round < 2; round++ )
                 {
-                    var funcName = p1;
+                    dataBuf = dataBuf.replace( /{{([^}]+)}}/g, function( match, p1 )
+                    {
+                        var funcName = p1;
 
-                    funcInfo = compiledInfo["fmap"][funcName];
-                    funcArgs = compiledInfo["fargs"][funcName];
+                        funcInfo = compiledInfo["fmap"][funcName];
+                        funcArgs = compiledInfo["fargs"][funcName];
 
-                    funcArgs["rawStr"] = p1; // not used, here just as guideline
-                    
-                    var replacement = __runFunc( env, funcInfo, funcArgs );
+                        funcArgs["rawStr"] = p1; // not used, here just as guideline
+                        
+                        if ( funcInfo.args == "env.content_length" && env.content_length == undefined  )
+                        {
+                            doSecondRound = true;
 
-                    return replacement;
-                });
+                            return match;
+                        }
+                        else
+                        {
+                            var replacement = __runFunc( env, funcInfo, funcArgs );
+
+                            return replacement;
+                        }
+                    });
+
+                    if ( doSecondRound )
+                    {
+                        var bodyStInd = dataBuf.indexOf( "\r\n\r\n" );
+                        
+                        env.content_length = ( bodyStInd != -1 ) ? ( dataBuf.length - (bodyStInd += "\r\n\r\n".length) ) : 0;
+                    }
+                    else
+                        break;
+                }
             }
         }
 
-        __noVerbose || console.log( "[runBuf] dataBuf OUT: '%s'", dataBuf.toString( isHex ? "hex" : "" ) );
+        __noVerbose || console.log( "[runBuf] isReceival: %s, dataBuf OUT: '%s'", isReceival, dataBuf.toString( isHex ? "hex" : "" ) );
     }
 
     return dataBuf;
 }
 
-function emitRTP2( rtpInfo, interval )
+function emitRTP2( rtpInfo, interval, completeFn )
 {
     return emitRTP( 
         rtpInfo["proto"], 
@@ -520,19 +562,26 @@ function emitRTP2( rtpInfo, interval )
         rtpInfo["remote_ip"], 
         rtpInfo["remote_port"], 
         rtpInfo["msg"], 
-        interval 
+        interval,
+        completeFn
     );
 }
 
 // CLIENT: invoked after receiving response (and parsing it) from vs.
 // SERVER: invoked after sending response (and parsing it) from vs.
 // stopped after delay interval (before next iteration)
-// if @send_msg 'null', it's server
-function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg, interval )
+function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg, interval, completeFn )
 {
-    console.log( "[RTP] run for %s sec, act: %s, [%s] %s:%s %s %s:%s", 
-        interval, send_msg != null,  
-        trans_proto, local_ip, local_port, ( send_msg != null ? "-->" : "<--" ), dst_ip, dst_port
+    var initiator = ( send_msg != null );
+
+    console.log();
+    console.log( "[RTP] run for %s sec, initiator: %s, RTP: [%s] %s:%s --> %s:%s", 
+        interval, initiator ? "yes" : "no",  
+        trans_proto, 
+        initiator ? local_ip : dst_ip, 
+        initiator ? local_port : dst_port, 
+        initiator ? dst_ip : local_ip, 
+        initiator ? dst_port : local_port
     );
 
     interval *= 1000;
@@ -553,7 +602,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
 
                 if ( remoteAddress != dst_ip || remotePort != dst_port )
                 {
-                    console.error( "[RTP-tcp] reject RTP connection [from %s:%s], expected from %s:%s", 
+                    console.error( "*** [RTP-tcp] reject RTP connection [from %s:%s], expected from %s:%s", 
                         remoteAddress, remotePort, dst_ip, dst_port )
 
                     tcp_client.destroy();
@@ -564,6 +613,10 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
                     {
                         tcp_client.destroy();
                         //console.log( "[RTP-tcp] send: %s pkts, recv: %s pkts", sendPkt, recvPkt );
+
+                        if ( completeFn )
+                            completeFn();
+
                     }, interval);
 
                     tcp_client.on( "data", function( msg ) 
@@ -619,6 +672,10 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
                 {
                     tcp_client.destroy();
                     //console.log( "[RTP-tcp] send: %s pkts, recv: %s pkts", sendPkt, recvPkt );
+
+                    if ( completeFn )
+                        completeFn();
+
                 }, interval);
             });
 
@@ -655,6 +712,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
             {
                 console.log( "[RTP-tcp] sent>'%s' [%s bytes] [to %s:%s]", 
                     send_msg.toString(), send_msg.length, dst_ip, dst_port );
+                console.log();
             });
         }
     }
@@ -691,8 +749,12 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
                     remoteSocks[key]["state"] = "CLO";
                     
                     console.log( "[RTP-udp] send: %s pkts, recv: %s pkts", remoteSocks[key]["out"], remoteSocks[key]["in"] );
+                    console.log();
                     
                     __noVerbose || console.log( "[RTP-udp] CLO remoteSocks[key]" );
+
+                    if ( completeFn )
+                        completeFn();
 
                     setTimeout(function()
                     {
@@ -714,7 +776,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
 
                 value["in"] = recvPkt;
 
-                var reply_msg = msg.toString().split( "" ).reverse().join( "" );
+                var reply_msg = new Buffer( msg.toString().split( "" ).reverse().join( "" ) );
 
                 local.send( reply_msg, 0, reply_msg.length, remote.port, remote.address, function()
                 {
@@ -732,11 +794,11 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
 
         if ( dst_ip && dst_port && send_msg )
         {
+            // console.log( "[RTP-udp] send>'%s' [%s bytes] [to %s:%s]", 
+            //     send_msg.toString(), send_msg.length, dst_ip, dst_port );
+
             // do initial send
             local.send( send_msg, 0, send_msg.length, dst_port, dst_ip );
-
-            console.log( "[RTP-udp] send>'%s' [%s bytes] [to %s:%s]", 
-                send_msg.toString(), send_msg.length, dst_ip, dst_port );
         }
     }
 }
@@ -759,6 +821,9 @@ function parseArgs( argv, helpFn )
 
     var sendDataInfo = __getSendDataInfo( argv[1] /* cwd */, process.argv[argInd + 3] );
 
+    if ( sendDataInfo == null )
+        return null;
+
     var args = 
     {
         "cwd"       : argv[1],
@@ -774,13 +839,13 @@ function parseArgs( argv, helpFn )
     {
         var argNameValue = argv[ind];
 
-        //console.log( argNameValue )
+        //console.log( argNameValue, typeof( argNameValue ) )
 
         for ( var j = 0; j < optArgs.length; j++ )
         {
             var optArg = optArgs[j];
 
-            if ( argNameValue.startsWith( optArg + ": " ) )
+            if ( argNameValue.indexOf( optArg + ": " ) == 0 )
             {
                 var argValueStr = argNameValue.substr( (optArg + ": ").length );
 
@@ -820,6 +885,8 @@ function getEnv()
 
         print : function( prefix )
         {
+            console.log();
+
             if ( prefix )
                 console.log( "'%s'" + ":", prefix );
 
@@ -832,6 +899,8 @@ function getEnv()
                 if ( typeof( this[key] ) != "function" )
                     console.log( "'%s':'%s'", key, this[key] );
             }
+
+            console.log();
         },
 
         // env.assert( env.remote_ip )
@@ -930,7 +999,7 @@ function getRTPinfo( env, rtpTmpl )
             "local_port" :  parseInt( match[3] ),
             "remote_ip" :   match[4],
             "remote_port" : parseInt( match[5] ),
-            "msg" : match[6] ? match[6] : null
+            "msg" : match[6] ? new Buffer(match[6]) : null
         };
     }
 
@@ -956,3 +1025,5 @@ module.exports.parseRTParg      = parseRTParg;
 module.exports.getRTPinfo       = getRTPinfo;
 
 module.exports.CONTROL_PORT     = 6001;
+module.exports.ITER_TMPL_HEAD   = "[%s] ================================== iteration: %s ==================================";
+module.exports.ITER_TMPL_FOOTER = "[%s] ================================== iteration end ==================================\n";

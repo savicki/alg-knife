@@ -116,6 +116,8 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
                     "iter_num" : ind
                 });
 
+                console.log( mycmn.ITER_TMPL_HEAD, "tcp", ind );
+
                 var sendData = mycmn.runBuf( sendComp, env );
 
                 env.print( "** Before send:" );
@@ -145,7 +147,9 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
 
             if ( recvComp ) // verify MSG and/or update ENV vars
             {
-               msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+                msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+
+                if ( !msg ) return;
                
                env.print( "** After recv:" );
 
@@ -153,7 +157,14 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
                {
                     var rtpInfo = mycmn.getRTPinfo( env, rtpTmpl );
 
-                    mycmn.emitRTP2( rtpInfo, send_delay_sec - 1 );
+                    mycmn.emitRTP2( rtpInfo, send_delay_sec - 1, function()
+                    {
+                        console.log( mycmn.ITER_TMPL_FOOTER, "tcp" );
+                    });
+               }
+               else
+               {
+                    console.log( mycmn.ITER_TMPL_FOOTER, "tcp" );
                }
             }
         });
@@ -172,7 +183,7 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
     {
         if ( send_buff == null )
         {
-            console.error( "[udp] send data required, exit");
+            console.error( "*** [udp] send data required, exit");
             return;
         }
 
@@ -187,13 +198,22 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
             {
                 msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
 
+                if ( !msg ) return;
+
                 env.print( "** After recv:" );
 
                 if ( rtpTmpl )
                 {
                     var rtpInfo = mycmn.getRTPinfo( env, rtpTmpl );
 
-                    mycmn.emitRTP2( rtpInfo, send_delay_sec - 1 );
+                    mycmn.emitRTP2( rtpInfo, send_delay_sec - 1, function()
+                    {
+                        console.log( mycmn.ITER_TMPL_FOOTER, "udp" );
+                    });
+                }
+                else
+                {
+                    console.log( mycmn.ITER_TMPL_FOOTER, "udp" );
                 }
             }
         });
@@ -218,7 +238,12 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
                     "iter_num" : ind
                 });
 
+                console.log( mycmn.ITER_TMPL_HEAD, "udp", ind );
+
                 var sendData = mycmn.runBuf( sendComp, env );
+
+                if ( typeof( sendData ) == "string" )
+                    sendData = new Buffer( sendData );
 
                 env.print( "** Before send:" );
 
@@ -239,7 +264,7 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
     }
     else
     {
-        console.error( "wrong proto '%s', must be TCP/UDP, exit", trans_proto );
+        console.error( "*** wrong proto '%s', must be TCP/UDP, exit", trans_proto );
     }
 
 

@@ -89,6 +89,8 @@ if ( trans_proto == "tcp" )
 
         tcp_client.on( "data", function( msg ) 
         {
+            console.log( mycmn.ITER_TMPL_HEAD, "tcp", ind );
+
             env.update(
             {
                 "iter_num" : ind++
@@ -100,6 +102,8 @@ if ( trans_proto == "tcp" )
             if ( recvComp ) // verify MSG and/or update ENV vars
             {
                 msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+
+                if ( !msg ) return;
 
                 env.print( "** After recv:" );
             }
@@ -122,7 +126,14 @@ if ( trans_proto == "tcp" )
                         {
                             var rtpInfo = mycmn.getRTPinfo( env, rtpTmpl );
 
-                            mycmn.emitRTP2( rtpInfo, send_delay_sec - 1 );
+                            mycmn.emitRTP2( rtpInfo, send_delay_sec - 1, function()
+                            {
+                                console.log( mycmn.ITER_TMPL_FOOTER, "tcp" );
+                            });
+                        }
+                        else
+                        {
+                            console.log( mycmn.ITER_TMPL_FOOTER, "tcp" );
                         }
                     });
 
@@ -153,6 +164,8 @@ else if ( trans_proto == "udp" )
 
     udp_server.on( "message", function( msg, from )
     {
+        console.log( mycmn.ITER_TMPL_HEAD, "udp", ind );
+
         env.update(
         {
             "remote_ip"   : from.address,
@@ -165,6 +178,8 @@ else if ( trans_proto == "udp" )
         if ( recvComp ) // verify MSG and/or update ENV vars
         {
             msg = mycmn.runBuf( recvComp, env, msg /* recvData, bytes */ );
+
+            if ( !msg ) return;
 
             env.print( "** After recv:" );
         }
@@ -180,6 +195,9 @@ else if ( trans_proto == "udp" )
 
                 var sendData = mycmn.runBuf( sendComp, env );
 
+                if ( typeof( sendData ) == "string" )
+                    sendData = new Buffer( sendData );
+
                 env.print( "** Before send:" );
 
                 udp_server.send( sendData, 0, sendData.length, from.port, from.address, function()
@@ -191,7 +209,14 @@ else if ( trans_proto == "udp" )
                     {
                         var rtpInfo = mycmn.getRTPinfo( env, rtpTmpl );
 
-                        mycmn.emitRTP2( rtpInfo, send_delay_sec - 1 );
+                        mycmn.emitRTP2( rtpInfo, send_delay_sec - 1, function()
+                        {
+                            console.log( mycmn.ITER_TMPL_FOOTER, "udp" );
+                        } );
+                    }
+                    else
+                    {
+                        console.log( mycmn.ITER_TMPL_FOOTER, "udp" );
                     }
                 });
 

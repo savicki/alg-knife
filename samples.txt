@@ -1,0 +1,19 @@
+
+# allow tcp.dport 6001 in frwl!
+
+
+
+nodejs client.js tcp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite.tmpl"     "rmap: ./../samples/SIP/sip_invite_200.rmap" "rep: 1" "delay: 2"
+nodejs server.js tcp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite_200.tmpl" "rmap: ./../samples/SIP/sip_invite.rmap"
+
+
+
+nodejs client.js tcp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite.tmpl" "rmap: ./../samples/SIP/sip_invite_200.rmap" "rep: 10" "delay: 5" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} 123"
+
+nodejs server.js udp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite_200.tmpl" "rmap: ./../samples/SIP/sip_invite.rmap" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}}" "delay: 5"
+
+
+
+nodejs client.js tcp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite.tmpl" "rmap: ./../samples/SIP/sip_invite_200.rmap" "rep: 10" "delay: 5" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} 123"
+
+nodejs server.js udp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite_200.tmpl" "rmap: ./../samples/SIP/sip_invite.rmap" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}}" "delay: 5"

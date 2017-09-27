@@ -5,6 +5,8 @@
 - send schemas, e.g. {10,24,12,40} for 10+24+12+40 byte-long msg, so ring buffers can be pin-tested. As well as stream helpers.
 + v support
 + support placeholders in text messages, e.g. {listen_ip}:{listen_port}, {iter_num}
+- assert for SIP: "Content-length: xxx"
+- can't exit after RTP flows (open sockets??)
 
 {{proto}}
 {{local_ip}}, {{local_port}}
@@ -178,3 +180,9 @@ node nodejs/client.js udp 127.0.0.1 9001 "\x0000000000000000" "wmap: ./samples/s
 node nodejs/server.js tcp 127.0.0.1 9001 "\x0000000000000000" "rmap: ./samples/sccp/sccp_smt.rmap" "wmap: ./samples/sccp/sccp_smt.wmap" "delay: 3" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} "
 
 node nodejs/client.js tcp 127.0.0.1 9001 "\x0000000000000000" "wmap: ./samples/sccp/sccp_smt.wmap" "rep: 10" "delay: 3" "rmap: ./samples/sccp/sccp_smt.rmap"  "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} 123"
+
+
+
+[ 27 sep ]
+
+nodejs client.js tcp 10.10.10.4 5060 "file: ./../samples/SIP/sip_tcp_invite.tmpl" "rep: 2" "delay: 2"
