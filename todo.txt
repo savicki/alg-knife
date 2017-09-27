@@ -10,7 +10,8 @@
 - send several "opening" RTP packets
 - TCP: (on client) no recv from server, even loopback. But wireshark show incoming msg (when vs not loopback)!
 - RTP socket - eaddrinuse
-
+- DNS
+- SCCP
 
 
 {{proto}}
