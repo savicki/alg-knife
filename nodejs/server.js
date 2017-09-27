@@ -57,6 +57,7 @@ var tcp_control = net.createServer( function( tcp_client )
 {
     tcp_client.on( "error", function() 
     {
+        console.error( "*** tcp_control.error" );
     });
 });
 tcp_control.listen( mycmn.CONTROL_PORT, listen_ip );
