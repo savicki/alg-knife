@@ -20,7 +20,7 @@ function __strToBytes( str, retLen )
     {
         // TODO: check @retLen value
 
-        buffer.writeInt32BE( str, 0 );
+        buffer.writeInt32LE( str, 0 );
     }
     else
     if ( match = str.match( /(\d+).(\d+).(\d+).(\d+)/ ) )
@@ -51,7 +51,7 @@ function __bytesToStr( bytes, fieldName )
     // TODO: proto?
     else // port, iter_num, thread_num
     {
-        str = bytes.readUInt32BE( 0 ).toString();
+        str = bytes.readUInt32LE( 0 ).toString();
     }
 
     __noVerbose || console.log( "[__bytesToStr] str = '%s'", str );
