@@ -734,6 +734,8 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
         var recvPkt = 0, sendPkt = 0;
 
 
+        const UDP_EMIT_INTERVAL = 5;
+
         var __doSendMsg = function( sock, msg, port, ip )
         {
             if ( isEmitStopped )
@@ -748,8 +750,12 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
 
                 // console.log( "[RTP-udp] send>'%s' [%s bytes] [to %s:%s]", 
                 //     msg.toString(), msg.length, ip, port );  
-                              
-                __doSendMsg( sock, msg, port, ip );
+                
+                setTimeout(function()
+                {
+                    __doSendMsg( sock, msg, port, ip );
+
+                }, UDP_EMIT_INTERVAL);
             });
         }
 
