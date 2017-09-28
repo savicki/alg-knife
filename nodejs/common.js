@@ -132,6 +132,23 @@ function __getSendDataInfo( cwd, send_data )
     {
         send_buff = new Buffer( send_data.substr( hexPrefixLen ), "hex" );
     }
+    else if ( isFileHex )
+    {
+        var filename = send_data.substr( fileHexPrefixLen ).trim();
+
+        filename = path.join( path.dirname( cwd ), filename );
+        __noVerbose || console.log( filename );
+        
+        if ( fs.existsSync( filename ) )
+        {
+            send_buff = new Buffer( fs.readFileSync( filename ), "hex" );
+        }
+        else
+        {
+            console.error( "*** file '%s' not found, exit.", filename );
+            return null;
+        }
+    }
     else if ( isFile )
     {
         var filename = send_data.substr( filePrefixLen ).trim();
@@ -142,23 +159,6 @@ function __getSendDataInfo( cwd, send_data )
         if ( fs.existsSync( filename ) )
         {
             send_buff = new Buffer( fs.readFileSync( filename ) );
-        }
-        else
-        {
-            console.error( "*** file '%s' not found, exit.", filename );
-            return null;
-        }
-    }
-    else if ( isFileHex )
-    {
-        var filename = send_data.substr( fileHexPrefixLen ).trim();
-
-        filename = path.join( path.dirname( cwd ), filename );
-        __noVerbose || console.log( filename );
-        
-        if ( fs.existsSync( filename ) )
-        {
-            send_buff = new Buffer( fs.readFileSync( filename, "utf-8"), "hex" );
         }
         else
         {
@@ -202,8 +202,8 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
     var fmap = {}
     var funcInfo;
 
-
-    if ( hexMap )
+    
+    if ( compiledBuf["isHex"] )
     {
         var __evalEnvFromBytes = function( env, immutableArgs, fArgs ) 
         {
@@ -311,7 +311,9 @@ function compileBuf( isReceival, sendBuf /* tmplData */, hexMap )
 
         // for sent, keep data to process-then-send
         if ( isReceival == false )
+        {
             compiledBuf["compiled"] = sendBuf;
+        }
     }
     else // ! hex
     {

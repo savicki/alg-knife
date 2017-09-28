@@ -10,10 +10,15 @@ nodejs server.js tcp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite_200.tmpl
 
 nodejs client.js tcp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite.tmpl" "rmap: ./../samples/SIP/sip_invite_200.rmap" "rep: 10" "delay: 5" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} 123"
 
-nodejs server.js udp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite_200.tmpl" "rmap: ./../samples/SIP/sip_invite.rmap" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}}" "delay: 5"
-
-
-
 nodejs client.js tcp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite.tmpl" "rmap: ./../samples/SIP/sip_invite_200.rmap" "rep: 10" "delay: 5" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} 123"
 
+
+
 nodejs server.js udp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite_200.tmpl" "rmap: ./../samples/SIP/sip_invite.rmap" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}}" "delay: 5"
+
+nodejs server.js udp 172.16.0.4 5060 "file: ./../samples/SIP/sip_invite_200.tmpl" "rmap: ./../samples/SIP/sip_invite.rmap" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}}" "delay: 5"
+
+
+node client.js udp 192.168.232.131 53 "filehex: ./../samples/dns/dns_a_query_ya.ru.hex"  "rep: 1" "delay: 6" "v: "
+
+node client.js tcp 192.168.232.131 2000 "filehex: ./../samples/sccp/sccp_smt.hex"  "rep: 1" "delay: 6" "v: "
