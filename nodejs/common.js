@@ -761,8 +761,8 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
                 isEmitStopped = true;
                 local.close();
                 
-                __noVerbose || console.log( "[RTP-udp] send: %s pkts, recv: %s pkts", sendPkt, recvPkt );
-                __noVerbose || console.log();
+                console.log( "[RTP-udp] send: %s pkts, recv: %s pkts", sendPkt, recvPkt );
+                console.log();
 
                 if ( completeFn )
                     completeFn();
@@ -792,7 +792,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
                     msg.toString(), msg.length, remote.address, remote.port );
 
                 // start sending
-                __doSendMsg( local, send_msg, dst_port, dst_ip );
+                __doSendMsg( local, msg, dst_port, dst_ip );
             }
 
             // console.log( "[RTP-udp] recv>'%s' [%s bytes] [from %s:%s]", 
@@ -803,7 +803,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
 
         local.on( "error", function()
         {
-
+            local.close();
         })
     }
 }
