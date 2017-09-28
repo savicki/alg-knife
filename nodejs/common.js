@@ -46,7 +46,12 @@ function __bytesToStr( bytes, fieldName )
 
     if ( /_ip/.test( fieldName ) && bytes.length == 4 )
     {
-        str = bytes.join( "." );
+        //str = bytes.join( "." );
+        
+        str = bytes[0];
+
+        for ( var i = 1; i < bytes.length; i++ )
+            str += "." + bytes[i];
     }
     // TODO: proto?
     else // port, iter_num, thread_num
