@@ -6,12 +6,12 @@
 + v support
 + support placeholders in text messages, e.g. {listen_ip}:{listen_port}, {iter_num}
 - assert for SIP: "Content-length: xxx"
-? can't exit after RTP flows (open sockets??)
++ can't exit after RTP flows (open sockets??)
 + send several "opening" RTP packets
-? TCP: (on client) no recv from server, even loopback. But wireshark show incoming msg (when visavi not loopback)!
-? RTP socket - eaddrinuse
-- DNS
-- SCCP
++ TCP: (on client) no recv from server, even loopback. But wireshark show incoming msg (when visavi not loopback)!
++ RTP socket - eaddrinuse
++ DNS
++ SCCP
 
 
 {{proto}}
