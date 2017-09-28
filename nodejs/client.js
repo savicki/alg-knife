@@ -177,6 +177,8 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
         tcp_client.on( "error", function()
         {
             console.log( "[tcp] connection error" );
+
+            process.exit( 1 );
         });
     }
     else if ( trans_proto == "udp" )

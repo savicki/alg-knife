@@ -719,7 +719,32 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
     else if ( trans_proto == "udp" )
     {
         var local = dgram.createSocket('udp4');
-        var remoteSocks = {};
+
+        var isActiveOpen = ( dst_ip && dst_port && send_msg );
+        var isEmitRun = false;
+        var isEmitStopped = false;
+
+        var recvPkt = 0, sendPkt = 0;
+
+
+        var __doSendMsg = function( sock, msg, port, ip )
+        {
+            if ( isEmitStopped )
+                return;
+
+            sock.send( msg, 0, msg.length, port, ip, function()
+            {
+                if ( isEmitStopped )
+                    return;
+
+                sendPkt++;
+
+                // console.log( "[RTP-udp] send>'%s' [%s bytes] [to %s:%s]", 
+                //     msg.toString(), msg.length, ip, port );  
+                              
+                __doSendMsg( sock, msg, port, ip );
+            });
+        }
 
         local.on( "[RTP-udp] listening", function() 
         {
@@ -728,78 +753,58 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
             console.log( "[RTP-udp] listening on %s:%s", address.address, address.port );
         });
 
-        local.on( "message", function( msg, remote ) 
+        local.bind( local_port, local_ip, function()
         {
-            var key     = remote.address + ":" + remote.port;
-            var value   = remoteSocks[key];
-
-            if ( value === undefined )
+            // schedule destroy timer
+            setTimeout(function()
             {
-                remoteSocks[key] = 
-                {
-                    "state" : "EST",
-                    "in" : 0,
-                    "out" : 0
-                }
+                isEmitStopped = true;
+                local.close();
+                
+                __noVerbose || console.log( "[RTP-udp] send: %s pkts, recv: %s pkts", sendPkt, recvPkt );
+                __noVerbose || console.log();
 
-                value = remoteSocks[key];
+                if ( completeFn )
+                    completeFn();
 
-                setTimeout(function()
-                {
-                    remoteSocks[key]["state"] = "CLO";
-                    
-                    console.log( "[RTP-udp] send: %s pkts, recv: %s pkts", remoteSocks[key]["out"], remoteSocks[key]["in"] );
-                    console.log();
-                    
-                    __noVerbose || console.log( "[RTP-udp] CLO remoteSocks[key]" );
+            }, interval);
 
-                    if ( completeFn )
-                        completeFn();
 
-                    setTimeout(function()
-                    {
-                        delete remoteSocks[key];
-                        
-                        __noVerbose || console.log( "[RTP-udp] delete remoteSocks[key]" );
-
-                    }, 2000 );
-
-                }, interval);
-            }
-
-            //console.log( "[RTP-udp] recv>'%s' [%s bytes] [from %s:%s]", 
-            //    msg.toString(), msg.length, remote.address, remote.port );
-
-            if ( value["state"] == "EST" )
+            if ( isActiveOpen )
             {
-                recvPkt++;
+                isEmitRun = true;
 
-                value["in"] = recvPkt;
+                console.log( "[RTP-udp] active send>'%s' [%s bytes] [to %s:%s]", 
+                    send_msg.toString(), send_msg.length, dst_ip, dst_port );
 
-                var reply_msg = new Buffer( msg.toString().split( "" ).reverse().join( "" ) );
-
-                local.send( reply_msg, 0, reply_msg.length, remote.port, remote.address, function()
-                {
-                    sendPkt++;
-
-                    value["out"] = recvPkt;
-
-                    //console.log( "[RTP-udp] send>'%s' [%s bytes] [to %s:%s]", 
-                    //    reply_msg.toString(), reply_msg.length, remote.address, remote.port );
-                });
+                // start sending
+                __doSendMsg( local, send_msg, dst_port, dst_ip );
             }
         });
 
-        local.bind( local_port, local_ip );
-
-        if ( dst_ip && dst_port && send_msg )
+        local.on( "message", function( msg, remote ) 
         {
-            // console.log( "[RTP-udp] send>'%s' [%s bytes] [to %s:%s]", 
-            //     send_msg.toString(), send_msg.length, dst_ip, dst_port );
+            if ( !isActiveOpen && !isEmitRun )
+            {
+                isEmitRun = true;
 
-            // do initial send
-            local.send( send_msg, 0, send_msg.length, dst_port, dst_ip );
-        }
+                console.log( "[RTP-udp] active recv>'%s' [%s bytes] [from %s:%s]", 
+                    msg.toString(), msg.length, remote.address, remote.port );
+
+                // start sending
+                __doSendMsg( local, send_msg, dst_port, dst_ip );
+            }
+
+            // console.log( "[RTP-udp] recv>'%s' [%s bytes] [from %s:%s]", 
+            //    msg.toString(), msg.length, remote.address, remote.port );
+
+            recvPkt++;
+        });
+
+        local.on( "error", function()
+        {
+
+        })
     }
 }
 

@@ -1,15 +1,15 @@
 
-- RTP generator, so expectations can be tested
++ RTP generator, so expectations can be tested
 - support SIPP xml scenarios
 - support dialog?
 - send schemas, e.g. {10,24,12,40} for 10+24+12+40 byte-long msg, so ring buffers can be pin-tested. As well as stream helpers.
 + v support
 + support placeholders in text messages, e.g. {listen_ip}:{listen_port}, {iter_num}
 - assert for SIP: "Content-length: xxx"
-- can't exit after RTP flows (open sockets??)
-- send several "opening" RTP packets
-- TCP: (on client) no recv from server, even loopback. But wireshark show incoming msg (when vs not loopback)!
-- RTP socket - eaddrinuse
+? can't exit after RTP flows (open sockets??)
++ send several "opening" RTP packets
+? TCP: (on client) no recv from server, even loopback. But wireshark show incoming msg (when visavi not loopback)!
+? RTP socket - eaddrinuse
 - DNS
 - SCCP
 
