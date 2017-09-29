@@ -560,7 +560,7 @@ function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes!
     return dataBuf;
 }
 
-function emitRTP2( rtpInfo, interval, completeFn )
+function emitRTP2( rtpInfo, intervalSec, completeFn )
 {
     return emitRTP( 
         rtpInfo["proto"], 
@@ -569,7 +569,8 @@ function emitRTP2( rtpInfo, interval, completeFn )
         rtpInfo["remote_ip"], 
         rtpInfo["remote_port"], 
         rtpInfo["msg"], 
-        interval,
+        intervalSec,
+        null, /* rate, ms */
         completeFn
     );
 }
@@ -577,13 +578,22 @@ function emitRTP2( rtpInfo, interval, completeFn )
 // CLIENT: invoked after receiving response (and parsing it) from vs.
 // SERVER: invoked after sending response (and parsing it) from vs.
 // stopped after delay interval (before next iteration)
-function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg, interval, completeFn )
+function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg, intervalSec, rateMs, completeFn )
 {
+    const UDP_EMIT_INTERVAL = 5; 
+
+
     var initiator = ( send_msg != null );
+    rateMs = ( rateMs ) ? rateMs : UDP_EMIT_INTERVAL;
+
+    if ( typeof( send_msg ) == "string" )
+        send_msg = new Buffer( send_msg );
 
     console.log();
-    console.log( "[RTP] run for %s sec, initiator: %s, RTP: [%s] %s:%s --> %s:%s", 
-        interval, initiator ? "yes" : "no",  
+    console.log( "[RTP] run for %s sec, rate: %s ms, initiator: %s, RTP: [%s] %s:%s --> %s:%s", 
+        intervalSec,
+        rateMs, 
+        initiator ? "yes" : "no",  
         trans_proto, 
         initiator ? local_ip : dst_ip, 
         initiator ? local_port : dst_port, 
@@ -591,7 +601,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
         initiator ? dst_port : local_port
     );
 
-    interval *= 1000;
+    intervalSec *= 1000;
 
     var sendPkt = 0, recvPkt = 0;
 
@@ -624,7 +634,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
                         if ( completeFn )
                             completeFn();
 
-                    }, interval);
+                    }, intervalSec);
 
                     tcp_client.on( "data", function( msg ) 
                     {
@@ -683,7 +693,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
                     if ( completeFn )
                         completeFn();
 
-                }, interval);
+                }, intervalSec);
             });
 
             tcp_client.on( "data", function( msg )
@@ -727,14 +737,11 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
     {
         var local = dgram.createSocket('udp4');
 
-        var isActiveOpen = ( dst_ip && dst_port && send_msg );
+        var isActiveOpen = ( initiator );
         var isEmitRun = false;
         var isEmitStopped = false;
 
         var recvPkt = 0, sendPkt = 0;
-
-
-        const UDP_EMIT_INTERVAL = 5;
 
         var __doSendMsg = function( sock, msg, port, ip )
         {
@@ -755,7 +762,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
                 {
                     __doSendMsg( sock, msg, port, ip );
 
-                }, UDP_EMIT_INTERVAL);
+                }, rateMs);
             });
         }
 
@@ -780,7 +787,7 @@ function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg,
                 if ( completeFn )
                     completeFn();
 
-            }, interval);
+            }, intervalSec);
 
 
             if ( isActiveOpen )
