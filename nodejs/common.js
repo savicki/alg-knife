@@ -580,11 +580,15 @@ function emitRTP2( rtpInfo, intervalSec, completeFn )
 // stopped after delay interval (before next iteration)
 function emitRTP( trans_proto, local_ip, local_port, dst_ip, dst_port, send_msg, intervalSec, rateMs, completeFn )
 {
-    const UDP_EMIT_INTERVAL = 5; 
+    const TIMEOUT = 3600; /* sec */
+    const UDP_RATE = 5; /* ms */
 
 
     var initiator = ( send_msg != null );
-    rateMs = ( rateMs ) ? rateMs : UDP_EMIT_INTERVAL;
+
+    intervalSec = ( intervalSec ) ? intervalSec : TIMEOUT;
+    rateMs = ( rateMs ) ? rateMs : UDP_RATE;
+
 
     if ( typeof( send_msg ) == "string" )
         send_msg = new Buffer( send_msg );
