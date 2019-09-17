@@ -485,7 +485,7 @@ function runBuf( compiledInfo, env, recvBuf /* just received data, always bytes!
 
                 //__noVerbose || console.log( compiledInfo.compiled )
 
-                var match = dataBufStr.match( "^" + compiledInfo.compiled );
+                var match = dataBufStr.match( "^" + compiledInfo.compiled + "$" );
 
                 if ( match )
                 {

@@ -9,6 +9,10 @@ Max-Forwards: 70
 Subject: Performance Test
 Content-Type: application\/sdp
 Content-Length: {{(\d+)}}
+Refer-To: <sip:refertarget@{{(\d+.\d+.\d+.\d+)}}>
+Referred-By: <sip:referrer@{{(\d+.\d+.\d+.\d+)}}:{{(\d+)}}>
+Record-Route: <sip:{{(\d+.\d+.\d+.\d+)}};lr>
+Route: <sip:{{(\d+.\d+.\d+.\d+)}};lr>
 
 v=0
 o=user1 53655765 2353687637 IN IP4 {{(\d+.\d+.\d+.\d+)}}
