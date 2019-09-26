@@ -193,7 +193,3 @@ node nodejs/client.js tcp 127.0.0.1 9001 "\x0000000000000000" "wmap: ./samples/s
 
 nodejs client.js tcp 10.10.10.4 5060 "file: ./../samples/SIP/sip_tcp_invite.tmpl" "rep: 2" "delay: 2"
 
-
-[ 26 sep 2019 ]
-
-FIXME: sip_invite_rich.tmpl has ending CRLF, but sip_invite_rich.rmap not, and regex check passed
