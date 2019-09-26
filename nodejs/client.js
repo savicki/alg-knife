@@ -31,11 +31,12 @@ var args = mycmn.parseArgs( process.argv, printUsage );
 if ( !args )
     return;
 
-var trans_proto     = args["proto"];
+var trans_proto     = args["proto"] ? args["proto"].toLowerCase() : null;
 var dst_ip          = args["ip"];
 var dst_port        = args["port"];
-var send_repeat      = args["rep"] || 1;
-var send_delay_sec   = args["delay"] || 0;
+var send_repeat_cnt = args["rep"] || 1;
+var send_delay_sec  = args["delay"] || 0;
+var forced_src_ip   = args["from"] || null;
 
 
 mycmn.setVerbose( args["v"] != undefined );
@@ -76,17 +77,11 @@ var rtpTmpl = args["rtp"] ? mycmn.parseRTParg( args["rtp"] ) : null;
 //env.print();
 
 
-var tcp_client = null;
-var udp_client = null;
-var timer = null;
-
-
-var tcp_control = new net.Socket();
-tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function() 
+function work_do(tcp_ctrl_local_ip)
 {
     env.update(
     {
-        "local_ip" : tcp_control.localAddress
+        "local_ip" : tcp_ctrl_local_ip
     });
 
 
@@ -108,7 +103,7 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
 
             var doTcpSend = function()
             {
-                if ( ind == send_repeat )
+                if ( ind == send_repeat_cnt )
                     return;
 
                 env.update(
@@ -127,7 +122,7 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
                     console.log( "[tcp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s]", 
                         sendData.toString( isHexMode ? "HEX" : "" ), ind + 1, sendData.length, dst_ip, dst_port );
 
-                    if ( ind++ < send_repeat )
+                    if ( ind++ < send_repeat_cnt )
                     {
                         timer = setTimeout( doTcpSend, send_delay_sec * 1000 );
                     }
@@ -232,7 +227,7 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
 
             var doUdpSend = function()
             {
-                if ( ind == send_repeat )
+                if ( ind == send_repeat_cnt )
                     return;
 
                 env.update(
@@ -254,7 +249,7 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
                     console.log( "[udp] sent>'%s' [%s-th msg] [%s bytes] [to %s:%s] [from %s:%s]", 
                         sendData.toString( isHexMode ? "HEX" : "" ), ind + 1, sendData.length, dst_ip, dst_port, env.local_ip, env.local_port );
 
-                    if ( ind++ < send_repeat )
+                    if ( ind++ < send_repeat_cnt )
                     {
                         timer = setTimeout( doUdpSend, send_delay_sec * 1000 );
                     }
@@ -268,13 +263,37 @@ tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function()
     {
         console.error( "*** wrong proto '%s', must be TCP/UDP, exit", trans_proto );
     }
+}
+
+var tcp_client = null;
+var udp_client = null;
+var timer = null;
 
 
-});
+var tcp_control = null;
 
-tcp_control.on( "error", function() 
+if ( forced_src_ip && trans_proto == "udp" )
 {
-});
+    /* don't open control connection, send UDP msg */
+    work_do( forced_src_ip );
+}
+else
+{
+    tcp_control = new net.Socket();
+
+    console.log("Connecting (ctrl)...");
+
+    tcp_control.connect( mycmn.CONTROL_PORT, dst_ip, function() 
+    {
+        console.log("*******************" + tcp_control.localAddress + "*******************");
+
+        work_do(tcp_control.localAddress);
+    });
+
+    tcp_control.on( "error", function() 
+    {
+    });
+}
 
 process.on('SIGINT', function() 
 {

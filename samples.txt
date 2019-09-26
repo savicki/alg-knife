@@ -41,3 +41,10 @@ node server.js tcp 192.168.1.51 2000 "filehex: ./../samples/sccp/sccp_orca.hex" 
 node client.js tcp 192.168.1.51 2000 "filehex: ./../samples/sccp/sccp_smt.hex"  "wmap: ./../samples/sccp/sccp_smt.wmap" "rmap: ./../samples/sccp/sccp_orca.rmap" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}} xxx" "rep: 1" "delay: 6"
 
 node server.js tcp 192.168.1.51 2000 "filehex: ./../samples/sccp/sccp_orca.hex" "wmap: ./../samples/sccp/sccp_orca.wmap" "rmap: ./../samples/sccp/sccp_smt.rmap" "rtp: udp {{rtp_local_ip}} {{rtp_local_port}} {{rtp_remote_ip}} {{rtp_remote_port}}" "delay: 5"
+
+
+
+
+nodejs client.js udp 172.16.0.3 5060 "file: ./../samples/SIP/sip_invite.tmpl" "rmap: ./../samples/SIP/sip_invite_200.rmap" "from: 172.16.0.4"
+
+nodejs server.js udp 172.16.0.3 5060 "file: ./../samples/SIP/sip_invite_200.tmpl" "rmap: ./../samples/SIP/sip_invite.rmap"

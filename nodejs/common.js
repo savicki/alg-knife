@@ -862,13 +862,13 @@ function parseArgs( argv, helpFn )
         "sendData"  : sendDataInfo
     };
 
-    var optArgs = [ "rep", "delay", "wmap", "rmap", "rtp", "v" ];
+    var optArgs = [ "rep", "delay", "wmap", "rmap", "rtp", "v", "from" ];
 
     for ( var ind = argInd + 4; ind < argv.length; ind++ )
     {
         var argNameValue = argv[ind];
 
-        //console.log( argNameValue, typeof( argNameValue ) )
+        console.log( argNameValue, typeof( argNameValue ) )
 
         for ( var j = 0; j < optArgs.length; j++ )
         {
