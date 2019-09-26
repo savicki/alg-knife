@@ -292,6 +292,7 @@ else
 
     tcp_control.on( "error", function() 
     {
+        console.log("Connection attempt (ctrl) failed!");
     });
 }
 

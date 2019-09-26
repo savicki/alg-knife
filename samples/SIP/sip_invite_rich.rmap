@@ -1,6 +1,6 @@
 INVITE sip:uac@{{(\d+.\d+.\d+.\d+)}}{{assert(local_ip)}}:5060 SIP\/2.0
-Via: SIP\/2.0\/{{([A-Z]+)}} {{(\d+.\d+.\d+.\d+)}}{{assert(remote_ip)}}:{{(\d+)}};branch=z9hG4bK-16003-1-0
-Via: SIP\/2.0\/{{([A-Z]+)}} {{(\d+.\d+.\d+.\d+)}}{{assert(remote_ip)}}:{{(\d+)}};branch=z9hG4bK-16003-1-1
+Via: SIP\/2.0\/{{([A-Z]+)}} {{(\d+.\d+.\d+.\d+)}}{{assert(remote_ip)}}:{{(\d+)}};received={{(\d+.\d+.\d+.\d+)}};branch=z9hG4bK-16003-1-0
+Via: SIP\/2.0\/{{([A-Z]+)}} {{(\d+.\d+.\d+.\d+)}}{{assert(remote_ip)}}:{{(\d+)}};branch=z9hG4bK-16003-1-1;received={{(\d+.\d+.\d+.\d+)}}
 From: sipp <sip:sipp@{{(\d+.\d+.\d+.\d+)}}:{{(\d+)}}>;tag=16003SIPpTag001
 To: uac <sip:uac@{{(\d+.\d+.\d+.\d+)}}:{{(\d+)}}>
 Call-ID: 1-16003@{{(\d+.\d+.\d+.\d+)}}
