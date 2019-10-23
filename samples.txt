@@ -53,3 +53,6 @@ nodejs server.js udp 172.16.0.3 5060 "file: ./../samples/SIP/sip_invite_200.tmpl
 # open logical channel
 nodejs nodejs/client.js tcp 172.16.0.3 1720 "filehex: ./../samples/h323/OLC.hex"
 
+
+
+nodejs nodejs/client.js udp 172.16.0.3 1719 "filehex: ./../samples/h323/ras_gatekeeper_request.hex" "from: 172.16.0.4"
